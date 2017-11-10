@@ -2,24 +2,21 @@
 # -*- coding: utf8 -*-
 """
 Usage:
-        pybackup.py mydumper ARG_WITH_NO_--...
+        pybackup.py mydumper ARG_WITH_NO_--... (([--no-rsync] [--no-history]) | [--only-backup])
         pybackup.py -h | --help
         pybackup.py --version
 
 Options:
         -h --help                      Show help information.
         --version                      Show version.
-        --config=<config_file>         Config file.
-        --dbname=<database_name>       Section name in config file.
+        --no-rsync                     Do not use rsync.
+        --no-history                   Do not record backup history information.
 
 说明:
 ./pybackup.py mydumper 代表使用mydumper备份,你可以像使用mydumper一样传递参数,只不过在原本的mydumper命令前加上./pybackup,并且需要注意的一点是只支持长选项,并且不带'--'
 例如:
 ./pybackup.py mydumper password=fanboshi database=test outputdir=/data4/recover/pybackup/2017-11-08 logfile=/data4/recover/pybackup/bak.log verbose=3
 如果使用命令行指定参数,则必须指定logfile参数
-
-
-
 """
 
 import os
@@ -38,7 +35,16 @@ from docopt import docopt
 参数解析
 '''
 arguments = docopt(__doc__, version='pybackup 0.3')
-print(arguments)
+#print(arguments)
+if arguments['--no-rsync']:
+    rsync = False
+
+if arguments['--no-history']:
+    history = False
+
+if arguments['--only-backup']:
+    history = False
+    rsync = False
 
 
 '''
@@ -172,20 +178,24 @@ def getBackupSize(outputdir):
     return backup_size
 
 '''
-mydumper命令行目前只支持长选项(--)
+执行备份
 '''
 def runBackup(targetdb):
+    #是否指定了--database参数
     isDatabase_arg=[ x for x in arguments['ARG_WITH_NO_--'] if 'database' in x ]
     start_time=datetime.datetime.now()
     logging.info('Begin Backup')
     print(str(start_time) + ' Begin Backup')
+    #指定了--database参数,则为备份单个数据库,即使配置文件中指定了也忽略
     if isDatabase_arg:
         print(mydumper_args)
+        #生成备份命令
         cmd = getMdumperCmd(*mydumper_args)
         child = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
         state = child.wait()
         logging.info(''.join(child.stdout.readlines()))
         logging.info(''.join(child.stderr.readlines()))
+        #检查备份是否成功
         if state != 0:
             logging.critical('Backup Failed!')
             is_complete = 'N'
@@ -198,17 +208,24 @@ def runBackup(targetdb):
             print(str(end_time) + ' Backup Complete')
         elapsed_time = (end_time - start_time).seconds
         return start_time,end_time,elapsed_time,is_complete,cmd
+    #没有指定--database参数
     elif not isDatabase_arg:
+        #获取需要备份的数据库的列表
         bdb_list = getDBS(targetdb)
         print(bdb_list)
+        #如果列表为空,报错
         if not bdb_list:
             logging.critical('必须指定--database或在配置文件中指定需要备份的数据库')
             sys.exit(1)
         else:
+            #多个备份,每个备份都要有成功与否状态标记
             is_complete = ''
+            #在备份列表中循环
             for i in bdb_list:
                 comm = []
+                #一次备份一个数据库,下次循环将comm置空
                 comm = mydumper_args + ['--database='+ i]
+                #生成备份命令
                 cmd = getMdumperCmd(*comm)
                 child = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
                 state = child.wait()
@@ -216,6 +233,7 @@ def runBackup(targetdb):
                 logging.info(''.join(child.stderr.readlines()))
                 if state != 0:
                     logging.critical(i+'Backup Failed!')
+                    #Y,N,Y,Y
                     if is_complete:
                         is_complete += ',N'
                     else:
@@ -232,6 +250,7 @@ def runBackup(targetdb):
                     print(str(end_time) + ' ' + i + ' Backup Complete')
         end_time=datetime.datetime.now()
         elapsed_time = (end_time - start_time).seconds
+        #
         full_comm = 'mydumper ' + ' '.join(mydumper_args) + ' database='+ ','.join(bdb_list)
         return start_time,end_time,elapsed_time,is_complete,full_comm
 
@@ -239,6 +258,7 @@ def runBackup(targetdb):
 获取ip地址
 '''
 def getIP():
+    #过滤内网IP
     cmd = "/sbin/ifconfig  | /bin/grep  'inet addr:' | /bin/grep -v '127.0.0.1' | /bin/grep -v '192\.168' | /bin/grep -v '10\.'|  /bin/cut -d: -f2 | /usr/bin/head -1 |  /bin/awk '{print $1}'"
     child=subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE)
     child.wait()
@@ -338,11 +358,13 @@ if __name__ == '__main__':
             master_info,slave_info = 'N/A','N/A'
         
         if rsync_enable:
-            transfer_start,transfer_end,transfer_elapsed,transfer_complete = rsync(bk_dir)
-
-        CMDB=Fandb(cm_host,cm_port,cm_user,cm_passwd,cm_use)
-        mydumper_version,mysql_version = getVersion(targetdb)
-        sql = 'insert into user_backup(bk_id,bk_server,start_time,end_time,elapsed_time,is_complete,bk_size,bk_dir,transfer_start,transfer_end,transfer_elapsed,transfer_complete,remote_dest,master_status,slave_status,tool_version,server_version,bk_command) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'
-        CMDB.insert(sql,(bk_id,bk_server,start_time,end_time,elapsed_time,is_complete,bk_size,bk_dir,transfer_start,transfer_end,transfer_elapsed,transfer_complete,dest,master_info,slave_info,mydumper_version,mysql_version,safe_command))
-        CMDB.commit()
-        CMDB.close()
+            if rsync:
+                transfer_start,transfer_end,transfer_elapsed,transfer_complete = rsync(bk_dir)
+        
+        if history:
+            CMDB=Fandb(cm_host,cm_port,cm_user,cm_passwd,cm_use)
+            mydumper_version,mysql_version = getVersion(targetdb)
+            sql = 'insert into user_backup(bk_id,bk_server,start_time,end_time,elapsed_time,is_complete,bk_size,bk_dir,transfer_start,transfer_end,transfer_elapsed,transfer_complete,remote_d    est,master_status,slave_status,tool_version,server_version,bk_command) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'
+            CMDB.insert(sql,(bk_id,bk_server,start_time,end_time,elapsed_time,is_complete,bk_size,bk_dir,transfer_start,transfer_end,transfer_elapsed,transfer_complete,dest,master_info,slave_info,mydumper_version,mysql_version,safe_command))
+            CMDB.commit()
+            CMDB.close()
