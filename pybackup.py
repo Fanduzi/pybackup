@@ -50,10 +50,11 @@ def confLog():
         print('You must specify the --logfile option')
         sys.exit(1)
     else:
+        log = log_file[0].split('=')[1]
         logging.basicConfig(level=logging.DEBUG,
             format='%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s',
             datefmt='%a, %d %b %Y %H:%M:%S',
-            filename=log_file,
+            filename=log,
             filemode='a')
         arguments['ARG_WITH_NO_--'].remove(log_file[0])
 
@@ -88,6 +89,17 @@ tdb_user = cf.get(section_name, "db_user")
 tdb_passwd = cf.get(section_name, "db_passwd")
 tdb_use = cf.get(section_name, "db_use")
 tdb_list = cf.get(section_name, "db_list")
+
+try:
+    section_name ='rsync'
+    password_file = cf.get(section_name, "password_file")
+    dest = cf.get(section_name, "dest")
+    if dest[-1] != '/':
+        dest +='/'
+    rsync_enable = True
+except NoSectionError,e:
+    rsync_enable = False
+    logging.warning('No rsync section, pass', exc_info=True)
 
 '''
 获取查询数据库的语句
@@ -164,7 +176,6 @@ mydumper命令行目前只支持长选项(--)
 '''
 def runBackup(targetdb):
     isDatabase_arg=[ x for x in arguments['ARG_WITH_NO_--'] if 'database' in x ]
-    print(isDatabase_arg)
     start_time=datetime.datetime.now()
     logging.info('Begin Backup')
     print(str(start_time) + ' Begin Backup')
@@ -188,7 +199,6 @@ def runBackup(targetdb):
         elapsed_time = (end_time - start_time).seconds
         return start_time,end_time,elapsed_time,is_complete,cmd
     elif not isDatabase_arg:
-        print('not isDatabase_arg')
         bdb_list = getDBS(targetdb)
         print(bdb_list)
         if not bdb_list:
@@ -280,6 +290,32 @@ def getVersion(db):
     mysql_version = db.version()
     return mydumper_version,mysql_version
 
+'''
+rsync
+'''
+def rsync(bk_dir):
+    cmd = 'rsync -auv ' + bk_dir +' --password-file=' + password_file + ' rsync://' + dest
+    start_time=datetime.datetime.now()
+    logging.info('Start rsync')
+    print(str(start_time) + ' Start rsync')
+    child = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    state = child.wait()
+    logging.info(''.join(child.stdout.readlines()))
+    logging.info(''.join(child.stderr.readlines()))
+    if state != 0:
+        end_time=datetime.datetime.now()
+        logging.critical('Rsync Failed!')
+        print(str(end_time) + ' Rsync Failed!')
+        is_complete = 'N'
+    else:
+        end_time=datetime.datetime.now()
+        logging.info('Rsync complete')
+        print(str(end_time) + ' Rsync complete')
+        is_complete = 'Y'
+    elapsed_time = (end_time - start_time).seconds
+    return start_time,end_time,elapsed_time,is_complete
+
+
 if __name__ == '__main__':
     if arguments['mydumper'] and ('help' in arguments['ARG_WITH_NO_--'][0]):
         subprocess.call('mydumper --help',shell=True)
@@ -300,10 +336,13 @@ if __name__ == '__main__':
         else:
             bk_size = 'N/A'
             master_info,slave_info = 'N/A','N/A'
+        
+        if rsync_enable:
+            transfer_start,transfer_end,transfer_elapsed,transfer_complete = rsync(bk_dir)
 
         CMDB=Fandb(cm_host,cm_port,cm_user,cm_passwd,cm_use)
         mydumper_version,mysql_version = getVersion(targetdb)
-        sql = 'insert into user_backup(bk_id,bk_server,start_time,end_time,elapsed_time,is_complete,bk_size,bk_dir,master_status,slave_status,tool_version,server_version,bk_command) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'
-        CMDB.insert(sql,(bk_id,bk_server,start_time,end_time,elapsed_time,is_complete,bk_size,bk_dir,master_info,slave_info,mydumper_version,mysql_version,safe_command))
+        sql = 'insert into user_backup(bk_id,bk_server,start_time,end_time,elapsed_time,is_complete,bk_size,bk_dir,transfer_start,transfer_end,transfer_elapsed,transfer_complete,remote_dest,master_status,slave_status,tool_version,server_version,bk_command) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'
+        CMDB.insert(sql,(bk_id,bk_server,start_time,end_time,elapsed_time,is_complete,bk_size,bk_dir,transfer_start,transfer_end,transfer_elapsed,transfer_complete,dest,master_info,slave_info,mydumper_version,mysql_version,safe_command))
         CMDB.commit()
         CMDB.close()
