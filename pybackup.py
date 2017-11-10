@@ -5,13 +5,21 @@ Usage:
         pybackup.py mydumper ARG_WITH_NO_--...
         pybackup.py -h | --help
         pybackup.py --version
-        pybackup.py mydumper --config=<config_file> --dbname=<database_name>
 
 Options:
         -h --help                      Show help information.
         --version                      Show version.
         --config=<config_file>         Config file.
         --dbname=<database_name>       Section name in config file.
+
+说明:
+./pybackup.py mydumper 代表使用mydumper备份,你可以像使用mydumper一样传递参数,只不过在原本的mydumper命令前加上./pybackup,并且需要注意的一点是只支持长选项,并且不带'--'
+例如:
+./pybackup.py mydumper password=fanboshi database=test outputdir=/data4/recover/pybackup/2017-11-08 logfile=/data4/recover/pybackup/bak.log verbose=3
+如果使用命令行指定参数,则必须指定logfile参数
+
+
+
 """
 
 import os
@@ -32,14 +40,6 @@ from docopt import docopt
 arguments = docopt(__doc__, version='pybackup 0.1')
 print(arguments)
 
-{'--config': None,
- '--dbname': None,
- '--help': False,
- '--version': False,
- 'ARG_WITH_NO_--': ['user=root', 'password=mysql'],
- 'mydumper': True}
-
-
 if arguments['mydumper']:
     mydumper_args=[ '--'+x for x in arguments['ARG_WITH_NO_--'] ]
 
@@ -47,7 +47,6 @@ if arguments['mydumper']:
 日志配置
 '''
 def confLog():
-#    log_file=[ x for x in arguments['ARG_WITH_NO_--'] if 'logfile' in x ][0].split('=')[1]
     log_file=[ x for x in arguments['ARG_WITH_NO_--'] if 'logfile' in x ]
     if not log_file:
         print('You must specify the --logfile option')
@@ -106,6 +105,10 @@ class Fandb:
     def insert(self,sql,val=()):
         self.cursor.execute(sql,val)
 
+    def version(self):
+        self.cursor.execute('select version()')
+        return self.cursor.fetchone()
+
     def commit(self):
         self.conn.commit()
 
@@ -130,17 +133,19 @@ mydumper命令行目前只支持长选项(--)
 def runBackup():
     cmd=getMdumperCmd(*mydumper_args)
     start_time=datetime.datetime.now()
-    logging.info('-'*20)
     logging.info('Begin Backup')
+    print(str(start_time) + ' Begin Backup')
     state=subprocess.call(cmd,shell=True)
     if state != 0:
         logging.critical('Backup Failed!')
         is_complete = 'N'
         end_time=datetime.datetime.now()
+        print(str(end_time) + ' Backup Faild')
     else:
         end_time=datetime.datetime.now()
         logging.info('End Backup')
         is_complete = 'Y'
+        print(str(end_time) + ' Backup Complete')
     elapsed_time = (end_time - start_time).seconds
     return start_time,end_time,elapsed_time,is_complete,cmd
 
@@ -154,6 +159,50 @@ def getIP():
     ipaddress = child.communicate()[0].strip()
     return ipaddress
 
+'''
+从metadata中获取 SHOW MASTER STATUS / SHOW SLAVE STATUS 信息
+'''
+def getMetadata(outputdir):
+    metadata = outputdir + '/metadata'
+    with open(metadata,'r') as file:
+        content = file.readlines()
+    
+    separate_pos = content.index('\n')
+    
+    master_status = content[:separate_pos]
+    master_log=[ x.split(':')[1].strip() for x in master_status if 'Log' in x ]
+    master_pos=[ x.split(':')[1].strip() for x in master_status if 'Pos' in x ]
+    master_GTID=[ x.split(':')[1].strip() for x in master_status if 'GTID' in x ]
+    master_info = ','.join(master_log + master_pos + master_GTID)
+
+    slave_status = content[separate_pos+1:]
+    if not 'Finished' in slave_status[0]:
+        slave_log=[ x.split(':')[1].strip() for x in slave_status if 'Log' in x ][0]
+        slave_pos=[ x.split(':')[1].strip() for x in slave_status if 'Pos' in x ][0]
+        slave_GTID=[ x.split(':')[1].strip() for x in slave_status if 'GTID' in x ][0]
+        slave_info = ','.join(slave_log + slave_pos + slave_GTID)
+        return master_info,slave_info
+    else:
+        return master_info,'Not a slave'
+
+'''
+移除bk_command中的密码
+'''
+def safeCommand(cmd):
+    cmd_list = cmd.split(' ')
+    passwd = [ x.split('=')[1] for x in cmd_list if 'password' in x ][0]
+    safe_command = cmd.replace(passwd,'supersecrect')
+    return safe_command
+
+'''
+获取mydumper 版本和 mysql版本
+'''
+def getVersion(db):
+    child=subprocess.Popen('mydumper --version',shell=True,stdout=subprocess.PIPE)
+    child.wait()
+    mydumper_version = child.communicate()[0].strip()
+    mysql_version = db.version()
+    return mydumper_version,mysql_version
 
 if __name__ == '__main__':
     if arguments['mydumper'] and ('help' in arguments['ARG_WITH_NO_--'][0]):
@@ -163,14 +212,18 @@ if __name__ == '__main__':
         bk_id = str(uuid.uuid1())
         bk_server = getIP()
         start_time,end_time,elapsed_time,is_complete,bk_command = runBackup()
+        safe_command = safeCommand(bk_command)
         bk_dir=[ x for x in arguments['ARG_WITH_NO_--'] if 'outputdir' in x ][0].split('=')[1]
         if is_complete:
             bk_size = getBackupSize(bk_dir)
+            master_info,slave_info = getMetadata(bk_dir)
         else:
             bk_size = 'N/A'
+            master_info,slave_info = 'N/A','N/A'
 
         CMDB=Fandb(db_host,db_port,db_user,db_passwd,db_use)
-        sql = 'insert into user_backup(bk_id,bk_server,start_time,end_time,elapsed_time,is_complete,bk_size,bk_dir,bk_command) values(%s,%s,%s,%s,%s,%s,%s,%s,%s)'
-        CMDB.insert(sql,(bk_id,bk_server,start_time,end_time,elapsed_time,is_complete,bk_size,bk_dir,bk_command))
+        mydumper_version,mysql_version = getVersion(CMDB)
+        sql = 'insert into user_backup(bk_id,bk_server,start_time,end_time,elapsed_time,is_complete,bk_size,bk_dir,master_status,slave_status,tool_version,server_version,bk_command) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'
+        CMDB.insert(sql,(bk_id,bk_server,start_time,end_time,elapsed_time,is_complete,bk_size,bk_dir,master_info,slave_info,mydumper_version,mysql_version,safe_command))
         CMDB.commit()
         CMDB.close()
