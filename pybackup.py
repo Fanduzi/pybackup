@@ -37,11 +37,9 @@ from docopt import docopt
 '''
 参数解析
 '''
-arguments = docopt(__doc__, version='pybackup 0.1')
+arguments = docopt(__doc__, version='pybackup 0.3')
 print(arguments)
 
-if arguments['mydumper']:
-    mydumper_args=[ '--'+x for x in arguments['ARG_WITH_NO_--'] ]
 
 '''
 日志配置
@@ -52,13 +50,12 @@ def confLog():
         print('You must specify the --logfile option')
         sys.exit(1)
     else:
-        log_path=log_file[0].split('=')[1]
-        pybackup_log = log_path[0:log_path.rfind('/')+1] + 'pybackup.log'
         logging.basicConfig(level=logging.DEBUG,
             format='%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s',
             datefmt='%a, %d %b %Y %H:%M:%S',
-            filename=pybackup_log,
+            filename=log_file,
             filemode='a')
+        arguments['ARG_WITH_NO_--'].remove(log_file[0])
 
 '''
 拼接mydumper命令
@@ -76,13 +73,44 @@ def getMdumperCmd(*args):
 解析配置文件获取CMDB连接参数
 '''
 cf=ConfigParser.ConfigParser()
-cf.read(os.getcwd()+'/CMDB.conf')
+cf.read(os.getcwd()+'/pybackup.conf')
 section_name = 'CMDB1'
-db_host = cf.get(section_name, "db_host")
-db_port = cf.get(section_name, "db_port")
-db_user = cf.get(section_name, "db_user")
-db_passwd = cf.get(section_name, "db_passwd")
-db_use = cf.get(section_name, "db_use")
+cm_host = cf.get(section_name, "db_host")
+cm_port = cf.get(section_name, "db_port")
+cm_user = cf.get(section_name, "db_user")
+cm_passwd = cf.get(section_name, "db_passwd")
+cm_use = cf.get(section_name, "db_use")
+
+section_name = 'TDB'
+tdb_host = cf.get(section_name, "db_host")
+tdb_port = cf.get(section_name, "db_port")
+tdb_user = cf.get(section_name, "db_user")
+tdb_passwd = cf.get(section_name, "db_passwd")
+tdb_use = cf.get(section_name, "db_use")
+tdb_list = cf.get(section_name, "db_list")
+
+'''
+获取查询数据库的语句
+'''
+def getDBS(targetdb):
+    if tdb_list:
+        sql = 'select SCHEMA_NAME from schemata where 1=1 '
+        dbs = tdb_list.split(',')
+        for i in range(0,len(dbs)):
+            if i == 0:
+                sql += "and (SCHEMA_NAME like '" + dbs[i] + "'"
+            elif i == len(dbs)-1:
+                sql += "or SCHEMA_NAME like '" + dbs[i] + "')"
+            else:
+                sql += "or SCHEMA_NAME like '" + dbs[i] + "'"
+        bdb = targetdb.dbs(sql)
+        bdb_list = []
+        for i in range(0,len(bdb)):
+            bdb_list += bdb[i]
+        return bdb_list
+    else:
+        return None
+
 
 '''
 定义pymysql类
@@ -109,6 +137,10 @@ class Fandb:
         self.cursor.execute('select version()')
         return self.cursor.fetchone()
 
+    def dbs(self,sql):
+        self.cursor.execute(sql)
+        return self.cursor.fetchall()
+
     def commit(self):
         self.conn.commit()
 
@@ -130,24 +162,68 @@ def getBackupSize(outputdir):
 '''
 mydumper命令行目前只支持长选项(--)
 '''
-def runBackup():
-    cmd=getMdumperCmd(*mydumper_args)
+def runBackup(targetdb):
+    isDatabase_arg=[ x for x in arguments['ARG_WITH_NO_--'] if 'database' in x ]
+    print(isDatabase_arg)
     start_time=datetime.datetime.now()
     logging.info('Begin Backup')
     print(str(start_time) + ' Begin Backup')
-    state=subprocess.call(cmd,shell=True)
-    if state != 0:
-        logging.critical('Backup Failed!')
-        is_complete = 'N'
+    if isDatabase_arg:
+        print(mydumper_args)
+        cmd = getMdumperCmd(*mydumper_args)
+        child = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        state = child.wait()
+        logging.info(''.join(child.stdout.readlines()))
+        logging.info(''.join(child.stderr.readlines()))
+        if state != 0:
+            logging.critical('Backup Failed!')
+            is_complete = 'N'
+            end_time=datetime.datetime.now()
+            print(str(end_time) + ' Backup Faild')
+        else:
+            end_time=datetime.datetime.now()
+            logging.info('End Backup')
+            is_complete = 'Y'
+            print(str(end_time) + ' Backup Complete')
+        elapsed_time = (end_time - start_time).seconds
+        return start_time,end_time,elapsed_time,is_complete,cmd
+    elif not isDatabase_arg:
+        print('not isDatabase_arg')
+        bdb_list = getDBS(targetdb)
+        print(bdb_list)
+        if not bdb_list:
+            logging.critical('必须指定--database或在配置文件中指定需要备份的数据库')
+            sys.exit(1)
+        else:
+            is_complete = ''
+            for i in bdb_list:
+                comm = []
+                comm = mydumper_args + ['--database='+ i]
+                cmd = getMdumperCmd(*comm)
+                child = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+                state = child.wait()
+                logging.info(''.join(child.stdout.readlines()))
+                logging.info(''.join(child.stderr.readlines()))
+                if state != 0:
+                    logging.critical(i+'Backup Failed!')
+                    if is_complete:
+                        is_complete += ',N'
+                    else:
+                        is_complete += 'N'
+                    end_time=datetime.datetime.now()
+                    print(str(end_time) + ' ' + i + ' Backup Faild')
+                else:
+                    if is_complete:
+                        is_complete += ',Y'
+                    else:
+                        is_complete += 'Y'
+                    end_time=datetime.datetime.now()
+                    logging.info( i+' End Backup')
+                    print(str(end_time) + ' ' + i + ' Backup Complete')
         end_time=datetime.datetime.now()
-        print(str(end_time) + ' Backup Faild')
-    else:
-        end_time=datetime.datetime.now()
-        logging.info('End Backup')
-        is_complete = 'Y'
-        print(str(end_time) + ' Backup Complete')
-    elapsed_time = (end_time - start_time).seconds
-    return start_time,end_time,elapsed_time,is_complete,cmd
+        elapsed_time = (end_time - start_time).seconds
+        full_comm = 'mydumper ' + ' '.join(mydumper_args) + ' database='+ ','.join(bdb_list)
+        return start_time,end_time,elapsed_time,is_complete,full_comm
 
 '''
 获取ip地址
@@ -209,9 +285,13 @@ if __name__ == '__main__':
         subprocess.call('mydumper --help',shell=True)
     else:
         confLog()
+        if arguments['mydumper']:
+            mydumper_args=[ '--'+x for x in arguments['ARG_WITH_NO_--'] ]
+
+        targetdb = Fandb(tdb_host,tdb_port,tdb_user,tdb_passwd,tdb_use)
         bk_id = str(uuid.uuid1())
         bk_server = getIP()
-        start_time,end_time,elapsed_time,is_complete,bk_command = runBackup()
+        start_time,end_time,elapsed_time,is_complete,bk_command = runBackup(targetdb)
         safe_command = safeCommand(bk_command)
         bk_dir=[ x for x in arguments['ARG_WITH_NO_--'] if 'outputdir' in x ][0].split('=')[1]
         if is_complete:
@@ -221,8 +301,8 @@ if __name__ == '__main__':
             bk_size = 'N/A'
             master_info,slave_info = 'N/A','N/A'
 
-        CMDB=Fandb(db_host,db_port,db_user,db_passwd,db_use)
-        mydumper_version,mysql_version = getVersion(CMDB)
+        CMDB=Fandb(cm_host,cm_port,cm_user,cm_passwd,cm_use)
+        mydumper_version,mysql_version = getVersion(targetdb)
         sql = 'insert into user_backup(bk_id,bk_server,start_time,end_time,elapsed_time,is_complete,bk_size,bk_dir,master_status,slave_status,tool_version,server_version,bk_command) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'
         CMDB.insert(sql,(bk_id,bk_server,start_time,end_time,elapsed_time,is_complete,bk_size,bk_dir,master_info,slave_info,mydumper_version,mysql_version,safe_command))
         CMDB.commit()
