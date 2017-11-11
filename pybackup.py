@@ -47,10 +47,8 @@ if arguments['--only-backup']:
     rsync = False
 
 
-'''
-日志配置
-'''
 def confLog():
+    '''日志配置'''
     log_file = [x for x in arguments['ARG_WITH_NO_--'] if 'logfile' in x]
     if not log_file:
         print('You must specify the --logfile option')
@@ -65,10 +63,8 @@ def confLog():
         arguments['ARG_WITH_NO_--'].remove(log_file[0])
 
 
-'''
-拼接mydumper命令
-'''
 def getMdumperCmd(*args):
+    '''拼接mydumper命令'''
     cmd = 'mydumper '
     for i in range(0, len(args)):
         if i == len(args) - 1:
@@ -110,10 +106,9 @@ except NoSectionError, e:
     rsync_enable = False
     logging.warning('No rsync section, pass', exc_info=True)
 
-'''
-获取查询数据库的语句
-'''
+
 def getDBS(targetdb):
+    '''获取查询数据库的语句'''
     if tdb_list:
         sql = 'select SCHEMA_NAME from schemata where 1=1 '
         dbs = tdb_list.split(',')
@@ -133,10 +128,9 @@ def getDBS(targetdb):
         return None
 
 
-'''
-定义pymysql类
-'''
 class Fandb:
+    '''定义pymysql类'''
+
     def __init__(self, host, port, user, password, db, charset='utf8mb4'):
         self.host = host
         self.port = int(port)
@@ -172,10 +166,8 @@ class Fandb:
         self.conn.close()
 
 
-'''
-获取备份集大小
-'''
 def getBackupSize(outputdir):
+    '''获取备份集大小'''
     cmd = 'du -sh ' + outputdir
     child = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
     child.wait()
@@ -183,10 +175,8 @@ def getBackupSize(outputdir):
     return backup_size
 
 
-'''
-执行备份
-'''
 def runBackup(targetdb):
+    '''执行备份'''
     # 是否指定了--database参数
     isDatabase_arg = [
         x for x in arguments['ARG_WITH_NO_--'] if 'database' in x]
@@ -265,10 +255,8 @@ def runBackup(targetdb):
         return start_time, end_time, elapsed_time, is_complete, full_comm
 
 
-'''
-获取ip地址
-'''
 def getIP():
+    '''获取ip地址'''
     # 过滤内网IP
     cmd = "/sbin/ifconfig  | /bin/grep  'inet addr:' | /bin/grep -v '127.0.0.1' | /bin/grep -v '192\.168' | /bin/grep -v '10\.'|  /bin/cut -d: -f2 | /usr/bin/head -1 |  /bin/awk '{print $1}'"
     child = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
@@ -277,10 +265,8 @@ def getIP():
     return ipaddress
 
 
-'''
-从metadata中获取 SHOW MASTER STATUS / SHOW SLAVE STATUS 信息
-'''
 def getMetadata(outputdir):
+    '''从metadata中获取 SHOW MASTER STATUS / SHOW SLAVE STATUS 信息'''
     metadata = outputdir + '/metadata'
     with open(metadata, 'r') as file:
         content = file.readlines()
@@ -308,20 +294,16 @@ def getMetadata(outputdir):
         return master_info, 'Not a slave'
 
 
-'''
-移除bk_command中的密码
-'''
 def safeCommand(cmd):
+    '''移除bk_command中的密码'''
     cmd_list = cmd.split(' ')
     passwd = [x.split('=')[1] for x in cmd_list if 'password' in x][0]
     safe_command = cmd.replace(passwd, 'supersecrect')
     return safe_command
 
 
-'''
-获取mydumper 版本和 mysql版本
-'''
 def getVersion(db):
+    '''获取mydumper 版本和 mysql版本'''
     child = subprocess.Popen('mydumper --version',
                              shell=True, stdout=subprocess.PIPE)
     child.wait()
@@ -330,14 +312,14 @@ def getVersion(db):
     return mydumper_version, mysql_version
 
 
-'''
-rsync
-'''
-def rsync(bk_dir,address):
+def rsync(bk_dir, address):
+    '''rsync, bk_dir为备份所在目录,address为使用的网卡'''
     if not address:
-        cmd = 'rsync -auv ' + bk_dir + ' --password-file=' + password_file + ' rsync://' + dest
+        cmd = 'rsync -auv ' + bk_dir + ' --password-file=' + \
+            password_file + ' rsync://' + dest
     else:
-        cmd = 'rsync -auv ' + bk_dir + ' --address=' + address + ' --password-file=' + password_file + ' rsync://' + dest
+        cmd = 'rsync -auv ' + bk_dir + ' --address=' + address + \
+            ' --password-file=' + password_file + ' rsync://' + dest
     start_time = datetime.datetime.now()
     logging.info('Start rsync')
     print(str(start_time) + ' Start rsync')
@@ -386,7 +368,7 @@ if __name__ == '__main__':
         if rsync_enable:
             if rsync:
                 transfer_start, transfer_end, transfer_elapsed, transfer_complete = rsync(
-                    bk_dir,address)
+                    bk_dir, address)
 
         if history:
             CMDB = Fandb(cm_host, cm_port, cm_user, cm_passwd, cm_use)
