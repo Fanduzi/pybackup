@@ -102,6 +102,7 @@ try:
     section_name = 'rsync'
     password_file = cf.get(section_name, "password_file")
     dest = cf.get(section_name, "dest")
+    address = cf.get(section_name, "address")
     if dest[-1] != '/':
         dest += '/'
     rsync_enable = True
@@ -332,9 +333,11 @@ def getVersion(db):
 '''
 rsync
 '''
-def rsync(bk_dir):
-    cmd = 'rsync -auv ' + bk_dir + ' --password-file=' + \
-        password_file + ' rsync://' + dest
+def rsync(bk_dir,address):
+    if not address:
+        cmd = 'rsync -auv ' + bk_dir + ' --password-file=' + password_file + ' rsync://' + dest
+    else:
+        cmd = 'rsync -auv ' + bk_dir + ' --address=' + address + ' --password-file=' + password_file + ' rsync://' + dest
     start_time = datetime.datetime.now()
     logging.info('Start rsync')
     print(str(start_time) + ' Start rsync')
@@ -383,7 +386,7 @@ if __name__ == '__main__':
         if rsync_enable:
             if rsync:
                 transfer_start, transfer_end, transfer_elapsed, transfer_complete = rsync(
-                    bk_dir)
+                    bk_dir,address)
 
         if history:
             CMDB = Fandb(cm_host, cm_port, cm_user, cm_passwd, cm_use)
