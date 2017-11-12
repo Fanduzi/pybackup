@@ -59,3 +59,52 @@ db_list=!fan,!bo,!shi        代表不备份fan,bo,shi三个数据库
 db_list=%                    代表备份所有数据库
 db_list=!fan,bo              不支持
 ```
+
+备份信息示例
+```
+*************************** 3. row ***************************
+               id: 3
+            bk_id: 7d4085d8-c76f-11e7-ace3-005056b15d9c
+        bk_server: 106.3.130.84
+       start_time: 2017-11-12 14:05:31
+         end_time: 2017-11-12 14:06:26
+     elapsed_time: 54
+      is_complete: N,Y,Y,Y,Y,Y,Y,Y,Y,Y
+          bk_size: 2.2G
+           bk_dir: /data4/recover/pybackup/2017-11-12
+   transfer_start: NULL
+     transfer_end: NULL
+ transfer_elapsed: NULL
+transfer_complete: N/A (local backup)
+      remote_dest: platform@182.92.83.238/db_backup/106.3.130.84/
+    master_status: mysql-bin.000036,25255,
+     slave_status: Not a slave
+     tool_version: mydumper 0.9.2, built against MySQL 5.5.53
+   server_version: 5.7.18-log
+       bk_command: mydumper --password=supersecrect --outputdir=/data4/recover/pybackup/2017-11-12 --verbose=3 database=information_schema,PERCONA_SCHEMA,cmdb,fandb,mysql,performance_schema,sys,test,union_log_ad_201710_db,union_log_ad_201711_db
+```
+建库建表语句
+```
+create database cmdb;
+create table user_backup(
+id int auto_increment not null primary key,
+bk_id char(36) not null unique key,
+bk_server varchar(15) not null,
+start_time datetime not null,
+end_time datetime not null,
+elapsed_time int not null,
+is_complete varchar(30) not null,
+bk_size varchar(10) not null,
+bk_dir varchar(200) not null,
+transfer_start datetime,
+transfer_end datetime,
+transfer_elapsed int,
+transfer_complete varchar(20) not null,
+remote_dest varchar(200) not null,
+master_status varchar(200) not null,
+slave_status varchar(200) not null,
+tool_version varchar(200) not null,
+server_version varchar(200) not null,
+bk_command varchar(400) not null
+) engine=innodb character set utf8 collate utf8_general_ci;
+```
