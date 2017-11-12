@@ -86,25 +86,26 @@ transfer_complete: N/A (local backup)
 建库建表语句
 ```
 create database cmdb;
-create table user_backup(
-id int auto_increment not null primary key,
-bk_id char(36) not null unique key,
-bk_server varchar(15) not null,
-start_time datetime not null,
-end_time datetime not null,
-elapsed_time int not null,
-is_complete varchar(30) not null,
-bk_size varchar(10) not null,
-bk_dir varchar(200) not null,
-transfer_start datetime,
-transfer_end datetime,
-transfer_elapsed int,
-transfer_complete varchar(20) not null,
-remote_dest varchar(200) not null,
-master_status varchar(200) not null,
-slave_status varchar(200) not null,
-tool_version varchar(200) not null,
-server_version varchar(200) not null,
-bk_command varchar(400) not null
-) engine=innodb character set utf8 collate utf8_general_ci;
+CREATE TABLE user_backup (
+    id INT AUTO_INCREMENT NOT NULL PRIMARY KEY,
+    bk_id CHAR(36) NOT NULL UNIQUE KEY,
+    bk_server VARCHAR(15) NOT NULL,
+    start_time DATETIME NOT NULL,
+    end_time DATETIME NOT NULL,
+    elapsed_time INT NOT NULL,
+    backuped_db VARCHAR(200) NOT NULL,
+    is_complete VARCHAR(30) NOT NULL,
+    bk_size VARCHAR(10) NOT NULL,
+    bk_dir VARCHAR(200) NOT NULL,
+    transfer_start DATETIME,
+    transfer_end DATETIME,
+    transfer_elapsed INT,
+    transfer_complete VARCHAR(20) NOT NULL,
+    remote_dest VARCHAR(200) NOT NULL,
+    master_status VARCHAR(200) NOT NULL,
+    slave_status VARCHAR(200) NOT NULL,
+    tool_version VARCHAR(200) NOT NULL,
+    server_version VARCHAR(200) NOT NULL,
+    bk_command VARCHAR(400) NOT NULL
+)  ENGINE=INNODB CHARACTER SET UTF8= COLLATE UTF8_GENERAL_CI;
 ```
