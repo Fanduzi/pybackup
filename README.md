@@ -13,7 +13,7 @@ pybackup.py mydumper ARG_WITH_NO_--... (([--no-rsync] [--no-history]) | [--only-
 ```
 ./pybackup.py mydumper password=fanboshi database=fandb outputdir=/data4/recover/pybackup/2017-11-12 logfile=/data4/recover/pybackup/bak.log verbose=3
 ```
-可以使用`./pybackup.py mydumper help'查看mydumper帮助信息
+可以使用`./pybackup.py mydumper help`查看mydumper帮助信息
 
 --no-rsync
 不使用rsync传输
