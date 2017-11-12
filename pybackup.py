@@ -11,6 +11,7 @@ Options:
         --version                      Show version.
         --no-rsync                     Do not use rsync.
         --no-history                   Do not record backup history information.
+        --only-backup                  equal to use both --no-rsync and --no-history.
 
 说明:
 ./pybackup.py mydumper 代表使用mydumper备份,你可以像使用mydumper一样传递参数,只不过在原本的mydumper命令前加上./pybackup,并且需要注意的一点是只支持长选项,并且不带'--'
@@ -64,7 +65,7 @@ def getMdumperCmd(*args):
 '''
 cf = ConfigParser.ConfigParser()
 cf.read(os.getcwd() + '/pybackup.conf')
-section_name = 'CMDB1'
+section_name = 'CMDB'
 cm_host = cf.get(section_name, "db_host")
 cm_port = cf.get(section_name, "db_port")
 cm_user = cf.get(section_name, "db_user")
@@ -96,14 +97,32 @@ def getDBS(targetdb):
     '''获取查询数据库的语句'''
     if tdb_list:
         sql = 'select SCHEMA_NAME from schemata where 1=1 '
-        dbs = tdb_list.split(',')
-        for i in range(0, len(dbs)):
-            if i == 0:
-                sql += "and (SCHEMA_NAME like '" + dbs[i] + "'"
-            elif i == len(dbs) - 1:
-                sql += "or SCHEMA_NAME like '" + dbs[i] + "')"
-            else:
-                sql += "or SCHEMA_NAME like '" + dbs[i] + "'"
+        if tdb_list != '%':
+            dbs = tdb_list.split(',')
+            for i in range(0, len(dbs)):
+                if dbs[i][0] != '!':
+                    if len(dbs) == 1:
+                        sql += "and (SCHEMA_NAME like '" + dbs[0] + "')"
+                    else:
+                        if i == 0:
+                            sql += "and (SCHEMA_NAME like '" + dbs[i] + "'"
+                        elif i == len(dbs) - 1:
+                            sql += " or SCHEMA_NAME like '" + dbs[i] + "')"
+                        else:
+                            sql += " or SCHEMA_NAME like '" + dbs[i] + "'"
+                elif dbs[i][0] == '!':
+                    if len(dbs) == 1:
+                        sql += "and (SCHEMA_NAME not like '" + dbs[0][1:] + "')"
+                    else:
+                        if i == 0:
+                            sql += "and (SCHEMA_NAME not like '" + dbs[i][1:] + "'"
+                        elif i == len(dbs) - 1:
+                            sql += " and SCHEMA_NAME not like '" + dbs[i][1:] + "')"
+                        else:
+                            sql += " and SCHEMA_NAME not like '" + dbs[i][1:] + "'"
+        elif tdb_list == '%':
+            dbs = ['%']
+            sql = "select SCHEMA_NAME from schemata where SCHEMA_NAME like '%'"
         bdb = targetdb.dbs(sql)
         bdb_list = []
         for i in range(0, len(bdb)):
@@ -195,7 +214,7 @@ def runBackup(targetdb):
     elif not isDatabase_arg:
         # 获取需要备份的数据库的列表
         bdb_list = getDBS(targetdb)
-        print(bdb_list)
+        #print(bdb_list)
         # 如果列表为空,报错
         if not bdb_list:
             logging.critical('必须指定--database或在配置文件中指定需要备份的数据库')
@@ -374,7 +393,7 @@ if __name__ == '__main__':
                 transfer_start, transfer_end, transfer_elapsed, transfer_complete = rsync(
                     bk_dir, address)
             else:
-                transfer_start, transfer_end, transfer_elapsed, transfer_complete = 'N/A','N/A','N/A','N/A'
+                transfer_start, transfer_end, transfer_elapsed, transfer_complete = None,None,None,'N/A (local backup)'
 
         if history:
             CMDB = Fandb(cm_host, cm_port, cm_user, cm_passwd, cm_use)
