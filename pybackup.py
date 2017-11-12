@@ -184,12 +184,14 @@ def runBackup(targetdb):
     # 是否指定了--database参数
     isDatabase_arg = [
         x for x in arguments['ARG_WITH_NO_--'] if 'database' in x]
+    #备份的数据库 字符串
     start_time = datetime.datetime.now()
     logging.info('Begin Backup')
     print(str(start_time) + ' Begin Backup')
     # 指定了--database参数,则为备份单个数据库,即使配置文件中指定了也忽略
     if isDatabase_arg:
         #print(mydumper_args)
+        bdb = isDatabase_arg[0].split('=')[1]
         # 生成备份命令
         cmd = getMdumperCmd(*mydumper_args)
         child = subprocess.Popen(
@@ -209,7 +211,7 @@ def runBackup(targetdb):
             is_complete = 'Y'
             print(str(end_time) + ' Backup Complete')
         elapsed_time = (end_time - start_time).seconds
-        return start_time, end_time, elapsed_time, is_complete, cmd
+        return start_time, end_time, elapsed_time, is_complete, cmd, bdb
     # 没有指定--database参数
     elif not isDatabase_arg:
         # 获取需要备份的数据库的列表
@@ -220,6 +222,7 @@ def runBackup(targetdb):
             logging.critical('必须指定--database或在配置文件中指定需要备份的数据库')
             sys.exit(1)
         else:
+            bdb = ','.join(bdb_list)
             # 多个备份,每个备份都要有成功与否状态标记
             is_complete = ''
             # 在备份列表中循环
@@ -256,7 +259,7 @@ def runBackup(targetdb):
         #
         full_comm = 'mydumper ' + \
             ' '.join(mydumper_args) + ' database=' + ','.join(bdb_list)
-        return start_time, end_time, elapsed_time, is_complete, full_comm
+        return start_time, end_time, elapsed_time, is_complete, full_comm, bdb
 
 
 def getIP():
@@ -376,7 +379,7 @@ if __name__ == '__main__':
         targetdb = Fandb(tdb_host, tdb_port, tdb_user, tdb_passwd, tdb_use)
         bk_id = str(uuid.uuid1())
         bk_server = getIP()
-        start_time, end_time, elapsed_time, is_complete, bk_command = runBackup(
+        start_time, end_time, elapsed_time, is_complete, bk_command, backuped_db = runBackup(
             targetdb)
         safe_command = safeCommand(bk_command)
         bk_dir = [x for x in arguments['ARG_WITH_NO_--']
@@ -398,8 +401,8 @@ if __name__ == '__main__':
         if history:
             CMDB = Fandb(cm_host, cm_port, cm_user, cm_passwd, cm_use)
             mydumper_version, mysql_version = getVersion(targetdb)
-            sql = 'insert into user_backup(bk_id,bk_server,start_time,end_time,elapsed_time,is_complete,bk_size,bk_dir,transfer_start,transfer_end,transfer_elapsed,transfer_complete,remote_dest,master_status,slave_status,tool_version,server_version,bk_command) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'
-            CMDB.insert(sql, (bk_id, bk_server, start_time, end_time, elapsed_time, is_complete, bk_size, bk_dir, transfer_start, transfer_end,
+            sql = 'insert into user_backup(bk_id,bk_server,start_time,end_time,elapsed_time,backuped_db,is_complete,bk_size,bk_dir,transfer_start,transfer_end,transfer_elapsed,transfer_complete,remote_dest,master_status,slave_status,tool_version,server_version,bk_command) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'
+            CMDB.insert(sql, (bk_id, bk_server, start_time, end_time, elapsed_time, backuped_db, is_complete, bk_size, bk_dir, transfer_start, transfer_end,
                               transfer_elapsed, transfer_complete, dest, master_info, slave_info, mydumper_version, mysql_version, safe_command))
             CMDB.commit()
             CMDB.close()
