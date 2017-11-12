@@ -13,11 +13,8 @@ Options:
         --no-history                   Do not record backup history information.
         --only-backup                  equal to use both --no-rsync and --no-history.
 
-说明:
-./pybackup.py mydumper 代表使用mydumper备份,你可以像使用mydumper一样传递参数,只不过在原本的mydumper命令前加上./pybackup,并且需要注意的一点是只支持长选项,并且不带'--'
-例如:
-./pybackup.py mydumper password=fanboshi database=test outputdir=/data4/recover/pybackup/2017-11-08 logfile=/data4/recover/pybackup/bak.log verbose=3
-如果使用命令行指定参数,则必须指定logfile参数
+more help information in:
+https://github.com/Fanduzi
 """
 
 import os
