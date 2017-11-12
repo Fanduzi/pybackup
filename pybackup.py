@@ -31,21 +31,6 @@ import ConfigParser
 from docopt import docopt
 
 
-'''
-参数解析
-'''
-arguments = docopt(__doc__, version='pybackup 0.3')
-# print(arguments)
-if arguments['--no-rsync']:
-    rsync = False
-
-if arguments['--no-history']:
-    history = False
-
-if arguments['--only-backup']:
-    history = False
-    rsync = False
-
 
 def confLog():
     '''日志配置'''
@@ -185,7 +170,7 @@ def runBackup(targetdb):
     print(str(start_time) + ' Begin Backup')
     # 指定了--database参数,则为备份单个数据库,即使配置文件中指定了也忽略
     if isDatabase_arg:
-        print(mydumper_args)
+        #print(mydumper_args)
         # 生成备份命令
         cmd = getMdumperCmd(*mydumper_args)
         child = subprocess.Popen(
@@ -343,6 +328,25 @@ def rsync(bk_dir, address):
 
 
 if __name__ == '__main__':
+    '''
+    参数解析
+    '''
+    arguments = docopt(__doc__, version='pybackup 0.3')
+    # print(arguments)
+    if arguments['--no-rsync']:
+        rsync = False
+
+    if arguments['--no-history']:
+        history = False
+    else:
+        history = True
+
+    if arguments['--only-backup']:
+        history = False
+        rsync = False
+    else:
+        history = True
+
     if arguments['mydumper'] and ('help' in arguments['ARG_WITH_NO_--'][0]):
         subprocess.call('mydumper --help', shell=True)
     else:
@@ -369,11 +373,13 @@ if __name__ == '__main__':
             if rsync:
                 transfer_start, transfer_end, transfer_elapsed, transfer_complete = rsync(
                     bk_dir, address)
+            else:
+                transfer_start, transfer_end, transfer_elapsed, transfer_complete = 'N/A','N/A','N/A','N/A'
 
         if history:
             CMDB = Fandb(cm_host, cm_port, cm_user, cm_passwd, cm_use)
             mydumper_version, mysql_version = getVersion(targetdb)
-            sql = 'insert into user_backup(bk_id,bk_server,start_time,end_time,elapsed_time,is_complete,bk_size,bk_dir,transfer_start,transfer_end,transfer_elapsed,transfer_complete,remote_d    est,master_status,slave_status,tool_version,server_version,bk_command) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'
+            sql = 'insert into user_backup(bk_id,bk_server,start_time,end_time,elapsed_time,is_complete,bk_size,bk_dir,transfer_start,transfer_end,transfer_elapsed,transfer_complete,remote_dest,master_status,slave_status,tool_version,server_version,bk_command) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'
             CMDB.insert(sql, (bk_id, bk_server, start_time, end_time, elapsed_time, is_complete, bk_size, bk_dir, transfer_start, transfer_end,
                               transfer_elapsed, transfer_complete, dest, master_info, slave_info, mydumper_version, mysql_version, safe_command))
             CMDB.commit()
