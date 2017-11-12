@@ -1,5 +1,4 @@
 # pybackup使用文档
-https://github.com/Fanduzi/pybackup
 pybackup源自于对线上备份脚本的改进和对备份情况的监控需求.
 原本生产库的备份是通过shell脚本调用mydumper,之后再将备份通过rsync传输到备份机.
 想要获取备份状态,时间,rsync传输时间等信息只能通过解析日志.
