@@ -89,6 +89,9 @@ except NoSectionError, e:
     rsync_enable = False
     logging.warning('No rsync section, pass', exc_info=True)
 
+section_name = 'pybackup'
+tag = cf.get(section_name, "tag")
+
 
 def getDBS(targetdb):
     '''获取查询数据库的语句'''
@@ -398,8 +401,8 @@ if __name__ == '__main__':
         if history:
             CMDB = Fandb(cm_host, cm_port, cm_user, cm_passwd, cm_use)
             mydumper_version, mysql_version = getVersion(targetdb)
-            sql = 'insert into user_backup(bk_id,bk_server,start_time,end_time,elapsed_time,backuped_db,is_complete,bk_size,bk_dir,transfer_start,transfer_end,transfer_elapsed,transfer_complete,remote_dest,master_status,slave_status,tool_version,server_version,bk_command) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'
+            sql = 'insert into user_backup(bk_id,bk_server,start_time,end_time,elapsed_time,backuped_db,is_complete,bk_size,bk_dir,transfer_start,transfer_end,transfer_elapsed,transfer_complete,remote_dest,master_status,slave_status,tool_version,server_version,bk_command,tag) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'
             CMDB.insert(sql, (bk_id, bk_server, start_time, end_time, elapsed_time, backuped_db, is_complete, bk_size, bk_dir, transfer_start, transfer_end,
-                              transfer_elapsed, transfer_complete, dest, master_info, slave_info, mydumper_version, mysql_version, safe_command))
+                              transfer_elapsed, transfer_complete, dest, master_info, slave_info, mydumper_version, mysql_version, safe_command, tag))
             CMDB.commit()
             CMDB.close()
