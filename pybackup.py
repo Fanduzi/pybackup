@@ -24,6 +24,7 @@ import datetime
 import logging
 import pymysql
 import uuid
+import copy
 import ConfigParser
 
 from docopt import docopt
@@ -193,7 +194,18 @@ def runBackup(targetdb):
         #print(mydumper_args)
         bdb = isDatabase_arg[0].split('=')[1]
         # 生成备份命令
-        cmd = getMdumperCmd(*mydumper_args)
+        database = [ x.split('=')[1] for x in mydumper_args if 'database' in x ][0]
+        outputdir_arg = [ x for x in mydumper_args if 'outputdir' in x ]
+        temp_mydumper_args = copy.deepcopy(mydumper_args)
+        if outputdir_arg[0][-1] != '/':
+            temp_mydumper_args.remove(outputdir_arg[0])
+            temp_mydumper_args.append(outputdir_arg[0]+'/'+database)
+            last_outputdir = (outputdir_arg[0]+'/'+database).split('=')[1]
+        else:
+            temp_mydumper_args.remove(outputdir_arg[0])
+            temp_mydumper_args.append(outputdir_arg[0]+database)
+            last_outputdir = (outputdir_arg[0]+database).split('=')[1]
+        cmd = getMdumperCmd(*temp_mydumper_args)
         child = subprocess.Popen(
             cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         state = child.wait()
@@ -211,7 +223,7 @@ def runBackup(targetdb):
             is_complete = 'Y'
             print(str(end_time) + ' Backup Complete')
         elapsed_time = (end_time - start_time).seconds
-        return start_time, end_time, elapsed_time, is_complete, cmd, bdb
+        return start_time, end_time, elapsed_time, is_complete, cmd, bdb, last_outputdir
     # 没有指定--database参数
     elif not isDatabase_arg:
         # 获取需要备份的数据库的列表
@@ -229,7 +241,17 @@ def runBackup(targetdb):
             for i in bdb_list:
                 comm = []
                 # 一次备份一个数据库,下次循环将comm置空
-                comm = mydumper_args + ['--database=' + i]
+                outputdir_arg = [ x for x in mydumper_args if 'outputdir' in x ]
+                temp_mydumper_args = copy.deepcopy(mydumper_args)
+                if outputdir_arg[0][-1] != '/':
+                    temp_mydumper_args.remove(outputdir_arg[0])
+                    temp_mydumper_args.append(outputdir_arg[0]+'/'+i)
+                    last_outputdir = (outputdir_arg[0]+'/'+i).split('=')[1]
+                else:
+                    temp_mydumper_args.remove(outputdir_arg[0])
+                    temp_mydumper_args.append(outputdir_arg[0]+i)
+                    last_outputdir = (outputdir_arg[0]+i).split('=')[1]
+                comm = temp_mydumper_args + ['--database=' + i]
                 # 生成备份命令
                 cmd = getMdumperCmd(*comm)
                 child = subprocess.Popen(
@@ -259,7 +281,7 @@ def runBackup(targetdb):
         #
         full_comm = 'mydumper ' + \
             ' '.join(mydumper_args) + ' database=' + ','.join(bdb_list)
-        return start_time, end_time, elapsed_time, is_complete, full_comm, bdb
+        return start_time, end_time, elapsed_time, is_complete, full_comm, bdb, last_outputdir
 
 
 def getIP():
@@ -274,7 +296,10 @@ def getIP():
 
 def getMetadata(outputdir):
     '''从metadata中获取 SHOW MASTER STATUS / SHOW SLAVE STATUS 信息'''
-    metadata = outputdir + '/metadata'
+    if outputdir[-1] != '/':
+        metadata = outputdir + '/metadata'
+    else:
+        metadata = outputdir + 'metadata'
     with open(metadata, 'r') as file:
         content = file.readlines()
 
@@ -289,12 +314,9 @@ def getMetadata(outputdir):
 
     slave_status = content[separate_pos + 1:]
     if not 'Finished' in slave_status[0]:
-        slave_log = [x.split(':')[1].strip()
-                     for x in slave_status if 'Log' in x]
-        slave_pos = [x.split(':')[1].strip()
-                     for x in slave_status if 'Pos' in x]
-        slave_GTID = [x.split(':')[1].strip()
-                      for x in slave_status if 'GTID' in x]
+        slave_log = [x.split(':')[1].strip() for x in slave_status if 'Log' in x]
+        slave_pos = [x.split(':')[1].strip() for x in slave_status if 'Pos' in x]
+        slave_GTID = [x.split(':')[1].strip() for x in slave_status if 'GTID' in x]
         slave_info = ','.join(slave_log + slave_pos + slave_GTID)
         return master_info, slave_info
     else:
@@ -376,17 +398,17 @@ if __name__ == '__main__':
         if arguments['mydumper']:
             mydumper_args = ['--' + x for x in arguments['ARG_WITH_NO_--']]
 
+        bk_dir = [x for x in arguments['ARG_WITH_NO_--'] if 'outputdir' in x][0].split('=')[1]
         targetdb = Fandb(tdb_host, tdb_port, tdb_user, tdb_passwd, tdb_use)
         bk_id = str(uuid.uuid1())
         bk_server = getIP()
-        start_time, end_time, elapsed_time, is_complete, bk_command, backuped_db = runBackup(
+        start_time, end_time, elapsed_time, is_complete, bk_command, backuped_db, last_outputdir = runBackup(
             targetdb)
         safe_command = safeCommand(bk_command)
-        bk_dir = [x for x in arguments['ARG_WITH_NO_--']
-                  if 'outputdir' in x][0].split('=')[1]
+        
         if is_complete:
             bk_size = getBackupSize(bk_dir)
-            master_info, slave_info = getMetadata(bk_dir)
+            master_info, slave_info = getMetadata(last_outputdir)
         else:
             bk_size = 'N/A'
             master_info, slave_info = 'N/A', 'N/A'
