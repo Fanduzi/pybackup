@@ -58,7 +58,7 @@ def getMdumperCmd(*args):
 
 
 '''
-解析配置文件获取CMDB连接参数
+解析配置文件获取参数
 '''
 cf = ConfigParser.ConfigParser()
 cf.read(os.getcwd() + '/pybackup.conf')
@@ -290,11 +290,11 @@ def getMetadata(outputdir):
     slave_status = content[separate_pos + 1:]
     if not 'Finished' in slave_status[0]:
         slave_log = [x.split(':')[1].strip()
-                     for x in slave_status if 'Log' in x][0]
+                     for x in slave_status if 'Log' in x]
         slave_pos = [x.split(':')[1].strip()
-                     for x in slave_status if 'Pos' in x][0]
+                     for x in slave_status if 'Pos' in x]
         slave_GTID = [x.split(':')[1].strip()
-                      for x in slave_status if 'GTID' in x][0]
+                      for x in slave_status if 'GTID' in x]
         slave_info = ','.join(slave_log + slave_pos + slave_GTID)
         return master_info, slave_info
     else:
