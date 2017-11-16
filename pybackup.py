@@ -206,11 +206,13 @@ def runBackup(targetdb):
             temp_mydumper_args.append(outputdir_arg[0]+database)
             last_outputdir = (outputdir_arg[0]+database).split('=')[1]
         cmd = getMdumperCmd(*temp_mydumper_args)
-        child = subprocess.Popen(
-            cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        state = child.wait()
-        logging.info(''.join(child.stdout.readlines()))
-        logging.info(''.join(child.stderr.readlines()))
+        child = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        while child.poll() == None:
+            stdout_line = child.stdout.readline().strip()
+            if stdout_line:
+                logging.info(stdout_line)
+        logging.info(child.stdout.read().strip())
+        state = child.returncode
         # 检查备份是否成功
         if state != 0:
             logging.critical('Backup Failed!')
@@ -254,11 +256,13 @@ def runBackup(targetdb):
                 comm = temp_mydumper_args + ['--database=' + i]
                 # 生成备份命令
                 cmd = getMdumperCmd(*comm)
-                child = subprocess.Popen(
-                    cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                state = child.wait()
-                logging.info(''.join(child.stdout.readlines()))
-                logging.info(''.join(child.stderr.readlines()))
+                child = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                while child.poll() == None:
+                    stdout_line = child.stdout.readline().strip()
+                    if stdout_line:
+                        logging.info(stdout_line)
+                logging.info(child.stdout.read().strip())
+                state = child.returncode
                 if state != 0:
                     logging.critical(i + 'Backup Failed!')
                     # Y,N,Y,Y
@@ -352,11 +356,13 @@ def rsync(bk_dir, address):
     start_time = datetime.datetime.now()
     logging.info('Start rsync')
     print(str(start_time) + ' Start rsync')
-    child = subprocess.Popen(
-        cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    state = child.wait()
-    logging.info(''.join(child.stdout.readlines()))
-    logging.info(''.join(child.stderr.readlines()))
+    child = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    while child.poll() == None:
+        stdout_line = child.stdout.readline().strip()
+        if stdout_line:
+            logging.info(stdout_line)
+    logging.info(child.stdout.read().strip())
+    state = child.returncode
     if state != 0:
         end_time = datetime.datetime.now()
         logging.critical('Rsync Failed!')
