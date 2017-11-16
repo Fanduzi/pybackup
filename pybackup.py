@@ -191,7 +191,7 @@ def runBackup(targetdb):
     print(str(start_time) + ' Begin Backup')
     # 指定了--database参数,则为备份单个数据库,即使配置文件中指定了也忽略
     if isDatabase_arg:
-        #print(mydumper_args)
+        print(mydumper_args)
         bdb = isDatabase_arg[0].split('=')[1]
         # 生成备份命令
         database = [ x.split('=')[1] for x in mydumper_args if 'database' in x ][0]
@@ -230,7 +230,7 @@ def runBackup(targetdb):
     elif not isDatabase_arg:
         # 获取需要备份的数据库的列表
         bdb_list = getDBS(targetdb)
-        #print(bdb_list)
+        print(bdb_list)
         # 如果列表为空,报错
         if not bdb_list:
             logging.critical('必须指定--database或在配置文件中指定需要备份的数据库')
@@ -241,6 +241,7 @@ def runBackup(targetdb):
             is_complete = ''
             # 在备份列表中循环
             for i in bdb_list:
+                print(i)
                 comm = []
                 # 一次备份一个数据库,下次循环将comm置空
                 outputdir_arg = [ x for x in mydumper_args if 'outputdir' in x ]
@@ -382,7 +383,7 @@ if __name__ == '__main__':
     参数解析
     '''
     arguments = docopt(__doc__, version='pybackup 0.3')
-    # print(arguments)
+    print(arguments)
     if arguments['--no-rsync']:
         rsync = False
 
@@ -425,6 +426,7 @@ if __name__ == '__main__':
                     bk_dir, address)
             else:
                 transfer_start, transfer_end, transfer_elapsed, transfer_complete = None,None,None,'N/A (local backup)'
+                dest = 'N/A (local backup)'
 
         if history:
             CMDB = Fandb(cm_host, cm_port, cm_user, cm_passwd, cm_use)
