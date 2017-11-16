@@ -59,6 +59,11 @@ db_list=!fan,!bo,!shi        代表不备份fan,bo,shi三个数据库
 db_list=%                    代表备份所有数据库
 db_list=!fan,bo              不支持
 ```
+还有一点需要注意,即便在配置文件中定义了db_list参数,也可以在命令行强制指定database=xx选项,例如
+```
+pybackup.py mydumper password="xx" user=root socket=/data/mysql/mysql.sock outputdir=/data/backup_db/ verbose=3 compress threads=8 triggers events routines use-savepoints logfile=/data/backup_db/pybackup.log database=yourdb
+```
+此时会只备份`yourdb`而忽略配置文件中的定义
 
 备份信息示例
 ```
