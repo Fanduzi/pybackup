@@ -230,6 +230,7 @@ def runBackup(targetdb):
     elif not isDatabase_arg:
         # 获取需要备份的数据库的列表
         bdb_list = getDBS(targetdb)
+        targetdb.close()
         print(bdb_list)
         # 如果列表为空,报错
         if not bdb_list:
@@ -407,6 +408,7 @@ if __name__ == '__main__':
 
         bk_dir = [x for x in arguments['ARG_WITH_NO_--'] if 'outputdir' in x][0].split('=')[1]
         targetdb = Fandb(tdb_host, tdb_port, tdb_user, tdb_passwd, tdb_use)
+        mydumper_version, mysql_version = getVersion(targetdb)
         bk_id = str(uuid.uuid1())
         bk_server = getIP()
         start_time, end_time, elapsed_time, is_complete, bk_command, backuped_db, last_outputdir = runBackup(
@@ -430,7 +432,6 @@ if __name__ == '__main__':
 
         if history:
             CMDB = Fandb(cm_host, cm_port, cm_user, cm_passwd, cm_use)
-            mydumper_version, mysql_version = getVersion(targetdb)
             sql = 'insert into user_backup(bk_id,bk_server,start_time,end_time,elapsed_time,backuped_db,is_complete,bk_size,bk_dir,transfer_start,transfer_end,transfer_elapsed,transfer_complete,remote_dest,master_status,slave_status,tool_version,server_version,bk_command,tag) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'
             CMDB.insert(sql, (bk_id, bk_server, start_time, end_time, elapsed_time, backuped_db, is_complete, bk_size, bk_dir, transfer_start, transfer_end,
                               transfer_elapsed, transfer_complete, dest, master_info, slave_info, mydumper_version, mysql_version, safe_command, tag))
