@@ -63,7 +63,7 @@ def getMdumperCmd(*args):
 '''
 cf = ConfigParser.ConfigParser()
 cf.read(os.getcwd() + '/pybackup.conf')
-section_name = 'CMDB'
+section_name = 'CATALOG'
 cm_host = cf.get(section_name, "db_host")
 cm_port = cf.get(section_name, "db_port")
 cm_user = cf.get(section_name, "db_user")
@@ -442,9 +442,9 @@ if __name__ == '__main__':
                 dest = 'N/A (local backup)'
 
         if history:
-            CMDB = Fandb(cm_host, cm_port, cm_user, cm_passwd, cm_use)
+            CATALOG = Fandb(cm_host, cm_port, cm_user, cm_passwd, cm_use)
             sql = 'insert into user_backup(bk_id,bk_server,start_time,end_time,elapsed_time,backuped_db,is_complete,bk_size,bk_dir,transfer_start,transfer_end,transfer_elapsed,transfer_complete,remote_dest,master_status,slave_status,tool_version,server_version,bk_command,tag) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'
-            CMDB.insert(sql, (bk_id, bk_server, start_time, end_time, elapsed_time, backuped_db, is_complete, bk_size, bk_dir, transfer_start, transfer_end,
+            CATALOG.insert(sql, (bk_id, bk_server, start_time, end_time, elapsed_time, backuped_db, is_complete, bk_size, bk_dir, transfer_start, transfer_end,
                               transfer_elapsed, transfer_complete, dest, master_info, slave_info, mydumper_version, mysql_version, safe_command, tag))
-            CMDB.commit()
-            CMDB.close()
+            CATALOG.commit()
+            CATALOG.close()
