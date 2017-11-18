@@ -3,6 +3,7 @@
 """
 Usage:
         pybackup.py mydumper ARG_WITH_NO_--... (([--no-rsync] [--no-history]) | [--only-backup])
+        pybackup.py only-rsync [--backup-dir=<DIR>] [--bk-id=<id>] [--log-file=<log>]
         pybackup.py -h | --help
         pybackup.py --version
 
@@ -11,7 +12,11 @@ Options:
         --version                      Show version.
         --no-rsync                     Do not use rsync.
         --no-history                   Do not record backup history information.
-        --only-backup                  equal to use both --no-rsync and --no-history.
+        --only-backup                  Equal to use both --no-rsync and --no-history.
+        --only-rsync                   When you backup complete, but rsync failed, use this option to rsync your backup.
+        --backup-dir=<DIR>             The directory where the backup files need to be rsync are located. [default: ./]
+        --bk-id=<id>                   bk-id in table user_backup.
+        --log-file=<log>               log file [default: ./rsync.log]
 
 more help information in:
 https://github.com/Fanduzi
@@ -33,18 +38,22 @@ from docopt import docopt
 
 def confLog():
     '''日志配置'''
-    log_file = [x for x in arguments['ARG_WITH_NO_--'] if 'logfile' in x]
-    if not log_file:
-        print('You must specify the --logfile option')
-        sys.exit(1)
+    if arguments['only-rsync']:
+        log = arguments['--log-file']
     else:
-        log = log_file[0].split('=')[1]
-        logging.basicConfig(level=logging.DEBUG,
-                            format='%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s',
-                            datefmt='%a, %d %b %Y %H:%M:%S',
-                            filename=log,
-                            filemode='a')
-        arguments['ARG_WITH_NO_--'].remove(log_file[0])
+        log_file = [x for x in arguments['ARG_WITH_NO_--'] if 'logfile' in x]
+        if not log_file:
+            print('You must specify the --logfile option')
+            sys.exit(1)
+        else:
+            log = log_file[0].split('=')[1]
+            arguments['ARG_WITH_NO_--'].remove(log_file[0])
+    logging.basicConfig(level=logging.DEBUG,
+                        format='%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s',
+                        datefmt='%a, %d %b %Y %H:%M:%S',
+                        filename=log,
+                        filemode='a')
+            
 
 
 def getMdumperCmd(*args):
@@ -64,11 +73,11 @@ def getMdumperCmd(*args):
 cf = ConfigParser.ConfigParser()
 cf.read(os.getcwd() + '/pybackup.conf')
 section_name = 'CATALOG'
-cm_host = cf.get(section_name, "db_host")
-cm_port = cf.get(section_name, "db_port")
-cm_user = cf.get(section_name, "db_user")
-cm_passwd = cf.get(section_name, "db_passwd")
-cm_use = cf.get(section_name, "db_use")
+cata_host = cf.get(section_name, "db_host")
+cata_port = cf.get(section_name, "db_port")
+cata_user = cf.get(section_name, "db_user")
+cata_passwd = cf.get(section_name, "db_passwd")
+cata_use = cf.get(section_name, "db_use")
 
 section_name = 'TDB'
 tdb_host = cf.get(section_name, "db_host")
@@ -91,6 +100,7 @@ tdb_list = cf.get(section_name, "db_list")
 #     logging.warning('No rsync section, pass', exc_info=True)
 
 if cf.has_section('rsync'):
+    section_name = 'rsync'
     password_file = cf.get(section_name, "password_file")
     dest = cf.get(section_name, "dest")
     address = cf.get(section_name, "address")
@@ -162,7 +172,7 @@ class Fandb:
         except Exception, e:
             logging.error('Failed to open file', exc_info=True)
 
-    def insert(self, sql, val=()):
+    def dml(self, sql, val=()):
         self.cursor.execute(sql, val)
 
     def version(self):
@@ -396,27 +406,36 @@ if __name__ == '__main__':
     '''
     arguments = docopt(__doc__, version='pybackup 0.3')
     print(arguments)
-    if arguments['--no-rsync']:
-        rsync = False
 
-    if arguments['--no-history']:
-        history = False
-    else:
-        history = True
-
-    if arguments['--only-backup']:
-        history = False
-        rsync = False
-    else:
-        history = True
 
     if arguments['mydumper'] and ('help' in arguments['ARG_WITH_NO_--'][0]):
         subprocess.call('mydumper --help', shell=True)
+    elif arguments['only-rsync']:
+        confLog()
+        backup_dir = arguments['--backup-dir']
+        if arguments['--bk-id']:
+            transfer_start, transfer_end, transfer_elapsed, transfer_complete = rsync(backup_dir, address)
+            CATALOG = Fandb(cata_host, cata_port, cata_user, cata_passwd, cata_use)
+            sql = 'update user_backup set transfer_start=%s, transfer_end=%s, transfer_elapsed=%s, transfer_complete=%s'
+            CATALOG.dml(sql, (transfer_start, transfer_end, transfer_elapsed, transfer_complete))
+            CATALOG.commit()
+            CATALOG.close()
+        else:
+            rsync(backup_dir,address)
     else:
         confLog()
         if arguments['mydumper']:
             mydumper_args = ['--' + x for x in arguments['ARG_WITH_NO_--']]
-
+            is_rsync = True
+            is_history = True
+            if arguments['--no-rsync']:
+                is_rsync = False
+            if arguments['--no-history']:
+                is_history = False
+            if arguments['--only-backup']:
+                is_history = False
+                is_rsync = False
+            print(is_rsync,is_history)
         bk_dir = [x for x in arguments['ARG_WITH_NO_--'] if 'outputdir' in x][0].split('=')[1]
         targetdb = Fandb(tdb_host, tdb_port, tdb_user, tdb_passwd, tdb_use)
         mydumper_version, mysql_version = getVersion(targetdb)
@@ -434,17 +453,16 @@ if __name__ == '__main__':
             master_info, slave_info = 'N/A', 'N/A'
 
         if rsync_enable:
-            if rsync:
-                transfer_start, transfer_end, transfer_elapsed, transfer_complete = rsync(
-                    bk_dir, address)
+            if is_rsync:
+                transfer_start, transfer_end, transfer_elapsed, transfer_complete = rsync(bk_dir, address)
             else:
                 transfer_start, transfer_end, transfer_elapsed, transfer_complete = None,None,None,'N/A (local backup)'
                 dest = 'N/A (local backup)'
 
-        if history:
-            CATALOG = Fandb(cm_host, cm_port, cm_user, cm_passwd, cm_use)
+        if is_history:
+            CATALOG = Fandb(cata_host, cata_port, cata_user, cata_passwd, cata_use)
             sql = 'insert into user_backup(bk_id,bk_server,start_time,end_time,elapsed_time,backuped_db,is_complete,bk_size,bk_dir,transfer_start,transfer_end,transfer_elapsed,transfer_complete,remote_dest,master_status,slave_status,tool_version,server_version,bk_command,tag) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'
-            CATALOG.insert(sql, (bk_id, bk_server, start_time, end_time, elapsed_time, backuped_db, is_complete, bk_size, bk_dir, transfer_start, transfer_end,
+            CATALOG.dml(sql, (bk_id, bk_server, start_time, end_time, elapsed_time, backuped_db, is_complete, bk_size, bk_dir, transfer_start, transfer_end,
                               transfer_elapsed, transfer_complete, dest, master_info, slave_info, mydumper_version, mysql_version, safe_command, tag))
             CATALOG.commit()
             CATALOG.close()
