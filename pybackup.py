@@ -78,15 +78,26 @@ tdb_passwd = cf.get(section_name, "db_passwd")
 tdb_use = cf.get(section_name, "db_use")
 tdb_list = cf.get(section_name, "db_list")
 
-try:
-    section_name = 'rsync'
+# try:
+#     section_name = 'rsync'
+#     password_file = cf.get(section_name, "password_file")
+#     dest = cf.get(section_name, "dest")
+#     address = cf.get(section_name, "address")
+#     if dest[-1] != '/':
+#         dest += '/'
+#     rsync_enable = True
+# except NoSectionError, e:
+#     rsync_enable = False
+#     logging.warning('No rsync section, pass', exc_info=True)
+
+if cf.has_section('rsync'):
     password_file = cf.get(section_name, "password_file")
     dest = cf.get(section_name, "dest")
     address = cf.get(section_name, "address")
     if dest[-1] != '/':
         dest += '/'
     rsync_enable = True
-except NoSectionError, e:
+else:
     rsync_enable = False
     logging.warning('No rsync section, pass', exc_info=True)
 
@@ -224,7 +235,7 @@ def runBackup(targetdb):
             logging.info('End Backup')
             is_complete = 'Y'
             print(str(end_time) + ' Backup Complete')
-        elapsed_time = (end_time - start_time).seconds
+        elapsed_time = (end_time - start_time).total_seconds()
         return start_time, end_time, elapsed_time, is_complete, cmd, bdb, last_outputdir
     # 没有指定--database参数
     elif not isDatabase_arg:
@@ -283,7 +294,7 @@ def runBackup(targetdb):
                     logging.info(i + ' End Backup')
                     print(str(end_time) + ' ' + i + ' Backup Complete')
         end_time = datetime.datetime.now()
-        elapsed_time = (end_time - start_time).seconds
+        elapsed_time = (end_time - start_time).total_seconds()
         #
         full_comm = 'mydumper ' + \
             ' '.join(mydumper_args) + ' database=' + ','.join(bdb_list)
@@ -375,7 +386,7 @@ def rsync(bk_dir, address):
         logging.info('Rsync complete')
         print(str(end_time) + ' Rsync complete')
         is_complete = 'Y'
-    elapsed_time = (end_time - start_time).seconds
+    elapsed_time = (end_time - start_time).total_seconds()
     return start_time, end_time, elapsed_time, is_complete
 
 
