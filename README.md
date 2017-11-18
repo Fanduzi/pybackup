@@ -91,7 +91,7 @@ transfer_complete: Y
 ```
 建库建表语句
 ```
-create database cmdb;
+create database catalogdb;
 CREATE TABLE user_backup (
     id INT AUTO_INCREMENT NOT NULL PRIMARY KEY,
     bk_id CHAR(36) NOT NULL UNIQUE KEY,
