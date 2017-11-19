@@ -7,12 +7,13 @@ pybackup源自于对线上备份脚本的改进和对备份情况的监控需求
 
 pybackup由python编写,调用mydumper和rsync,将备份信息存入数据库中,后期可以通过grafana图形化展示和监控备份
 
+目前不支持2.6,尽在2.7.14做过测试
 ## 参数说明
 ```
 pybackup.py mydumper ARG_WITH_NO_--... (([--no-rsync] [--no-history]) | [--only-backup])
 ```
 除了最后三个参数,使用的所有参数和mydumper -h中列出的参数相同. 只不过目前只支持长选项,并且不带'--'
-列:
+例:
 ```
 ./pybackup.py mydumper password=fanboshi database=fandb outputdir=/data4/recover/pybackup/2017-11-12 logfile=/data4/recover/pybackup/bak.log verbose=3
 ```
@@ -27,6 +28,10 @@ pybackup.py mydumper ARG_WITH_NO_--... (([--no-rsync] [--no-history]) | [--only-
 --only-backup
 等价于同时使用--no-rsync和--no-history . 不能与--no-rsync或--no-history同时使用
 
+```
+pybackup.py only-rsync [--backup-dir=<DIR>] [--bk-id=<id>] [--log-file=<log>]
+```
+当备份成功rsync失败时可以
 ## 配置文件说明
 配置文件为pbackup.conf
 ```
