@@ -21,12 +21,15 @@ pybackup.py mydumper ARG_WITH_NO_--... (([--no-rsync] [--no-history]) | [--only-
 可以使用`./pybackup.py mydumper help`查看mydumper帮助信息
 
 --no-rsync
+
 不使用rsync传输
 
 --no-history
+
 不记录备份信息到数据库
 
 --only-backup
+
 等价于同时使用--no-rsync和--no-history . 不能与--no-rsync或--no-history同时使用
 
 ```
