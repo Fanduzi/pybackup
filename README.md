@@ -13,6 +13,7 @@ pybackup由python编写,调用mydumper和rsync,将备份信息存入数据库中
 pybackup.py mydumper ARG_WITH_NO_--... (([--no-rsync] [--no-history]) | [--only-backup])
 ```
 除了最后三个参数,使用的所有参数和mydumper -h中列出的参数相同. 只不过目前只支持长选项,并且不带'--'
+
 例:
 ```
 ./pybackup.py mydumper password=fanboshi database=fandb outputdir=/data4/recover/pybackup/2017-11-12 logfile=/data4/recover/pybackup/bak.log verbose=3
@@ -32,6 +33,7 @@ pybackup.py mydumper ARG_WITH_NO_--... (([--no-rsync] [--no-history]) | [--only-
 pybackup.py only-rsync [--backup-dir=<DIR>] [--bk-id=<id>] [--log-file=<log>]
 ```
 当备份成功rsync失败时可以使用only-rsync来同步备份成功的文件
+
 --backup-dir
 rsync同步到的远程路径,如果不指定,则为pybackup.conf中配置的路径
 
