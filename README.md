@@ -39,7 +39,7 @@ pybackup.py only-rsync [--backup-dir=<DIR>] [--bk-id=<id>] [--log-file=<log>]
 
 --backup-dir
 
-rsync同步到的远程路径,如果不指定,则为pybackup.conf中配置的路径
+需要使用rsync同步的备份文件路径,如果不指定,则默认为./
 
 --bk-id
 
