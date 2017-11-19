@@ -7,7 +7,7 @@ pybackup源自于对线上备份脚本的改进和对备份情况的监控需求
 
 pybackup由python编写,调用mydumper和rsync,将备份信息存入数据库中,后期可以通过grafana图形化展示和监控备份
 
-目前不支持2.6,尽在2.7.14做过测试
+目前不支持2.6,仅在2.7.14做过测试
 ## 参数说明
 ```
 pybackup.py mydumper ARG_WITH_NO_--... (([--no-rsync] [--no-history]) | [--only-backup])
