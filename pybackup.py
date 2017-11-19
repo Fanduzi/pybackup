@@ -404,7 +404,7 @@ if __name__ == '__main__':
     '''
     参数解析
     '''
-    arguments = docopt(__doc__, version='pybackup 0.3')
+    arguments = docopt(__doc__, version='pybackup 0.5')
     print(arguments)
 
 
@@ -416,8 +416,8 @@ if __name__ == '__main__':
         if arguments['--bk-id']:
             transfer_start, transfer_end, transfer_elapsed, transfer_complete = rsync(backup_dir, address)
             CATALOG = Fandb(cata_host, cata_port, cata_user, cata_passwd, cata_use)
-            sql = 'update user_backup set transfer_start=%s, transfer_end=%s, transfer_elapsed=%s, transfer_complete=%s'
-            CATALOG.dml(sql, (transfer_start, transfer_end, transfer_elapsed, transfer_complete))
+            sql = 'update user_backup set transfer_start=%s, transfer_end=%s, transfer_elapsed=%s, transfer_complete=%s where bk_id=%s'
+            CATALOG.dml(sql, (transfer_start, transfer_end, transfer_elapsed, transfer_complete, arguments['--bk-id']))
             CATALOG.commit()
             CATALOG.close()
         else:
