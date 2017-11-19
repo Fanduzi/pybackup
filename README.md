@@ -31,17 +31,26 @@ pybackup.py mydumper ARG_WITH_NO_--... (([--no-rsync] [--no-history]) | [--only-
 ```
 pybackup.py only-rsync [--backup-dir=<DIR>] [--bk-id=<id>] [--log-file=<log>]
 ```
-当备份成功rsync失败时可以
+当备份成功rsync失败时可以使用only-rsync来同步备份成功的文件
+--backup-dir
+rsync同步到的远程路径,如果不指定,则为pybackup.conf中配置的路径
+
+--bk-id
+user_backup表中记录的备份bk_id,如果指定,则会在rsync同步完成后更新指定bk_id行的,传输起始时间,耗时,是否成功等信息.如果不指定则不更新user_backup表
+
+--log-file
+本次rsync指定的日志,如果不指定,则默认为当前目录rsync.log文件
+
 ## 配置文件说明
 配置文件为pbackup.conf
 ```
 [root@localhost pybackup]# less pybackup.conf 
-[CMDB]            --存储备份信息的数据库配置
+[CATALOG]            --存储备份信息的数据库配置
 db_host=localhost
 db_port=3306
 db_user=root
 db_passwd=fanboshi
-db_use=cmdb
+db_use=catalogdb
 
 [TDB]              --需要备份的数据库配置
 db_host=localhost
