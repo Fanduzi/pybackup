@@ -9,6 +9,30 @@ pybackup由python编写,调用mydumper和rsync,将备份信息存入数据库中
 
 目前不支持2.6,仅在2.7.14做过测试
 ## 参数说明
+帮助信息
+```
+[root@iZ23t8cwo3iZ backup_db]# python pybackup.py -h
+Usage:
+        pybackup.py mydumper ARG_WITH_NO_--... (([--no-rsync] [--no-history]) | [--only-backup])
+        pybackup.py only-rsync [--backup-dir=<DIR>] [--bk-id=<id>] [--log-file=<log>]
+        pybackup.py -h | --help
+        pybackup.py --version
+
+Options:
+        -h --help                      Show help information.
+        --version                      Show version.
+        --no-rsync                     Do not use rsync.
+        --no-history                   Do not record backup history information.
+        --only-backup                  Equal to use both --no-rsync and --no-history.
+        --only-rsync                   When you backup complete, but rsync failed, use this option to rsync your backup.
+        --backup-dir=<DIR>             The directory where the backup files need to be rsync are located. [default: ./]
+        --bk-id=<id>                   bk-id in table user_backup.
+        --log-file=<log>               log file [default: ./rsync.log]
+
+more help information in:
+https://github.com/Fanduzi
+```
+
 ```
 pybackup.py mydumper ARG_WITH_NO_--... (([--no-rsync] [--no-history]) | [--only-backup])
 ```
