@@ -412,7 +412,7 @@ if __name__ == '__main__':
     '''
     参数解析
     '''
-    arguments = docopt(__doc__, version='pybackup 0.5')
+    arguments = docopt(__doc__, version='pybackup 0.6')
     print(arguments)
 
 
