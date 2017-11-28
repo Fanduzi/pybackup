@@ -227,6 +227,10 @@ def runBackup(targetdb):
             temp_mydumper_args.append(outputdir_arg[0]+database)
             last_outputdir = (outputdir_arg[0]+database).split('=')[1]
         cmd = getMdumperCmd(*temp_mydumper_args)
+        #密码中可能有带'#'或括号的,处理一下用引号包起来
+        cmd_list = cmd.split(' ')
+        passwd = [x.split('=')[1] for x in cmd_list if 'password' in x][0]
+        cmd = cmd.replace(passwd, '"'+passwd+'"')
         child = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         while child.poll() == None:
             stdout_line = child.stdout.readline().strip()
@@ -279,6 +283,10 @@ def runBackup(targetdb):
                 comm = temp_mydumper_args + ['--database=' + i]
                 # 生成备份命令
                 cmd = getMdumperCmd(*comm)
+                #密码中可能有带'#'或括号的,处理一下用引号包起来
+                cmd_list = cmd.split(' ')
+                passwd = [x.split('=')[1] for x in cmd_list if 'password' in x][0]
+                cmd = cmd.replace(passwd, '"'+passwd+'"')
                 child = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                 while child.poll() == None:
                     stdout_line = child.stdout.readline().strip()
