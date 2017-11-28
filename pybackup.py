@@ -244,7 +244,7 @@ def runBackup(targetdb):
             is_complete = 'N'
             end_time = datetime.datetime.now()
             print(str(end_time) + ' Backup Faild')
-        else:
+        elif state == 0:
             end_time = datetime.datetime.now()
             logging.info('End Backup')
             is_complete = 'Y'
@@ -303,7 +303,7 @@ def runBackup(targetdb):
                         is_complete += 'N'
                     end_time = datetime.datetime.now()
                     print(str(end_time) + ' ' + i + ' Backup Faild')
-                else:
+                elif state == 0:
                     if is_complete:
                         is_complete += ',Y'
                     else:
