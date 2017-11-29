@@ -22,6 +22,13 @@ more help information in:
 https://github.com/Fanduzi
 """
 
+#示例
+"""
+python pybackup.py only-rsync --backup-dir=/data/backup_db/2017-11-28 --bk-id=9fc4b0ba-d3e6-11e7-9fd7-00163f001c40 --log-file=rsync.log 
+--backup-dir 最后日期不带/ 否则将传到rsync://platform@106.3.130.84/db_backup2/120.27.143.36/目录下而不是rsync://platform@106.3.130.84/db_backup2/120.27.143.36/2017-11-28目录下
+python /data/backup_db/pybackup.py mydumper password=xx user=root socket=/data/mysql/mysql.sock outputdir=/data/backup_db/2017-11-28 verbose=3 compress threads=8 triggers events routines use-savepoints logfile=/data/backup_db/pybackup.log
+"""
+
 import os
 import sys
 import subprocess
@@ -238,9 +245,10 @@ def runBackup(targetdb):
                 logging.info(stdout_line)
         logging.info(child.stdout.read().strip())
         state = child.returncode
+        logging.info('backup state:'+state)
         # 检查备份是否成功
         if state != 0:
-            logging.critical('Backup Failed!')
+            logging.critical(' Backup Failed!')
             is_complete = 'N'
             end_time = datetime.datetime.now()
             print(str(end_time) + ' Backup Faild')
@@ -294,8 +302,9 @@ def runBackup(targetdb):
                         logging.info(stdout_line)
                 logging.info(child.stdout.read().strip())
                 state = child.returncode
+                logging.info('backup state:'+state)
                 if state != 0:
-                    logging.critical(i + 'Backup Failed!')
+                    logging.critical(i + ' Backup Failed!')
                     # Y,N,Y,Y
                     if is_complete:
                         is_complete += ',N'
@@ -394,6 +403,7 @@ def rsync(bk_dir, address):
             logging.info(stdout_line)
     logging.info(child.stdout.read().strip())
     state = child.returncode
+    logging.info('rsync state:'+state)
     if state != 0:
         end_time = datetime.datetime.now()
         logging.critical('Rsync Failed!')
@@ -447,10 +457,10 @@ if __name__ == '__main__':
         bk_dir = [x for x in arguments['ARG_WITH_NO_--'] if 'outputdir' in x][0].split('=')[1]
         targetdb = Fandb(tdb_host, tdb_port, tdb_user, tdb_passwd, tdb_use)
         mydumper_version, mysql_version = getVersion(targetdb)
-        bk_id = str(uuid.uuid1())
-        bk_server = getIP()
         start_time, end_time, elapsed_time, is_complete, bk_command, backuped_db, last_outputdir = runBackup(
             targetdb)
+        targetdb.close()
+
         safe_command = safeCommand(bk_command)
         
         if is_complete:
@@ -468,6 +478,8 @@ if __name__ == '__main__':
                 dest = 'N/A (local backup)'
 
         if is_history:
+            bk_id = str(uuid.uuid1())
+            bk_server = getIP()
             CATALOG = Fandb(cata_host, cata_port, cata_user, cata_passwd, cata_use)
             sql = 'insert into user_backup(bk_id,bk_server,start_time,end_time,elapsed_time,backuped_db,is_complete,bk_size,bk_dir,transfer_start,transfer_end,transfer_elapsed,transfer_complete,remote_dest,master_status,slave_status,tool_version,server_version,bk_command,tag) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'
             CATALOG.dml(sql, (bk_id, bk_server, start_time, end_time, elapsed_time, backuped_db, is_complete, bk_size, bk_dir, transfer_start, transfer_end,
