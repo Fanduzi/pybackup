@@ -245,7 +245,7 @@ def runBackup(targetdb):
                 logging.info(stdout_line)
         logging.info(child.stdout.read().strip())
         state = child.returncode
-        logging.info('backup state:'+state)
+        logging.info('backup state:'+str(state))
         # 检查备份是否成功
         if state != 0:
             logging.critical(' Backup Failed!')
@@ -302,7 +302,7 @@ def runBackup(targetdb):
                         logging.info(stdout_line)
                 logging.info(child.stdout.read().strip())
                 state = child.returncode
-                logging.info('backup state:'+state)
+                logging.info('backup state:'+str(state))
                 if state != 0:
                     logging.critical(i + ' Backup Failed!')
                     # Y,N,Y,Y
@@ -403,7 +403,7 @@ def rsync(bk_dir, address):
             logging.info(stdout_line)
     logging.info(child.stdout.read().strip())
     state = child.returncode
-    logging.info('rsync state:'+state)
+    logging.info('rsync state:'+str(state))
     if state != 0:
         end_time = datetime.datetime.now()
         logging.critical('Rsync Failed!')
