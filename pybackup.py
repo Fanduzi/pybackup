@@ -459,7 +459,6 @@ if __name__ == '__main__':
         mydumper_version, mysql_version = getVersion(targetdb)
         start_time, end_time, elapsed_time, is_complete, bk_command, backuped_db, last_outputdir = runBackup(
             targetdb)
-        targetdb.close()
 
         safe_command = safeCommand(bk_command)
         
