@@ -24,7 +24,7 @@ https://github.com/Fanduzi
 
 #示例
 """
-python pybackup.py only-rsync --backup-dir=/data/backup_db/2017-11-28 --bk-id=9fc4b0ba-d3e6-11e7-9fd7-00163f001c40 --log-file=rsync.log 
+python pybackup.py only-rsync --backup-dir=/data/backup_db/2017-11-28 --bk-id=9fc4b0ba-d3e6-11e7-9fd7-00163f001c40 --log-file=rsync.log
 --backup-dir 最后日期不带/ 否则将传到rsync://platform@106.3.130.84/db_backup2/120.27.143.36/目录下而不是rsync://platform@106.3.130.84/db_backup2/120.27.143.36/2017-11-28目录下
 python /data/backup_db/pybackup.py mydumper password=xx user=root socket=/data/mysql/mysql.sock outputdir=/data/backup_db/2017-11-28 verbose=3 compress threads=8 triggers events routines use-savepoints logfile=/data/backup_db/pybackup.log
 """
@@ -60,7 +60,7 @@ def confLog():
                         datefmt='%a, %d %b %Y %H:%M:%S',
                         filename=log,
                         filemode='a')
-            
+
 
 
 def getMdumperCmd(*args):
@@ -422,7 +422,7 @@ if __name__ == '__main__':
     '''
     参数解析
     '''
-    arguments = docopt(__doc__, version='pybackup 0.6.3')
+    arguments = docopt(__doc__, version='pybackup 0.6.4')
     print(arguments)
 
 
@@ -461,7 +461,7 @@ if __name__ == '__main__':
             targetdb)
 
         safe_command = safeCommand(bk_command)
-        
+
         if 'N' not in is_complete:
             bk_size = getBackupSize(bk_dir)
             master_info, slave_info = getMetadata(last_outputdir)
