@@ -462,19 +462,21 @@ if __name__ == '__main__':
 
         safe_command = safeCommand(bk_command)
         
-        if is_complete:
+        if 'N' not in is_complete:
             bk_size = getBackupSize(bk_dir)
             master_info, slave_info = getMetadata(last_outputdir)
+            if rsync_enable:
+                if is_rsync:
+                    transfer_start, transfer_end, transfer_elapsed, transfer_complete = rsync(bk_dir, address)
+                else:
+                    transfer_start, transfer_end, transfer_elapsed, transfer_complete = None,None,None,'N/A (local backup)'
+                    dest = 'N/A (local backup)'
         else:
             bk_size = 'N/A'
             master_info, slave_info = 'N/A', 'N/A'
+            transfer_start, transfer_end, transfer_elapsed, transfer_complete = None,None,None,'Backup failed'
+            dest = 'Backup failed'
 
-        if rsync_enable:
-            if is_rsync:
-                transfer_start, transfer_end, transfer_elapsed, transfer_complete = rsync(bk_dir, address)
-            else:
-                transfer_start, transfer_end, transfer_elapsed, transfer_complete = None,None,None,'N/A (local backup)'
-                dest = 'N/A (local backup)'
 
         if is_history:
             bk_id = str(uuid.uuid1())
