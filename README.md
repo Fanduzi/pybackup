@@ -162,3 +162,24 @@ CREATE TABLE user_backup (
     tag varchar(200) NOT NULL DEFAULT 'N/A' 
 )  ENGINE=INNODB CHARACTER SET UTF8 COLLATE UTF8_GENERAL_CI;
 ```
+
+logroatate脚本
+```
+/data/backup_db/pybackup.log {
+      daily
+      rotate 7
+      missingok
+      compress
+      delaycompress
+      copytruncate
+}
+
+/data/backup_db/pybackup_sh.log {
+      daily
+      rotate 7
+      missingok
+      compress
+      delaycompress
+      copytruncate
+}
+```
