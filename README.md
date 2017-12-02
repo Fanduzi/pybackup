@@ -163,6 +163,25 @@ CREATE TABLE user_backup (
 )  ENGINE=INNODB CHARACTER SET UTF8 COLLATE UTF8_GENERAL_CI;
 ```
 
+备份脚本示例
+```
+#!/bin/sh
+DSERVENDAY=`date +%Y-%m-%d --date='2 day ago'`
+DTODAY=`date +%Y-%m-%d`
+
+cd /data/backup_db/
+rm -rf $DTODAY
+rm -rf $DSERVENDAY
+mkdir $DTODAY
+source ~/.bash_profile
+python /data/backup_db/pybackup.py mydumper password="papapa" user=root socket=/data/mysql/mysql.sock outputdir=/data/backup_db/$DTODAY verbose=3 compress threads=8 triggers events routines use-savepoints logfile=/data/backup_db/pybackup.log
+```
+
+crontab
+```
+0 4 * * * /data/backup_db/pybackup.sh>> /data/backup_db/pybackup_sh.log 2>&1 
+```
+
 logroatate脚本
 ```
 /data/backup_db/pybackup.log {
