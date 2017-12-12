@@ -211,14 +211,73 @@ def getBackupSize(outputdir):
 def runBackup(targetdb):
     '''执行备份'''
     # 是否指定了--database参数
-    isDatabase_arg = [
-        x for x in arguments['ARG_WITH_NO_--'] if 'database' in x]
+    isDatabase_arg = [ x for x in arguments['ARG_WITH_NO_--'] if 'database' in x ]
+    isTables_list = [ x for x in arguments['ARG_WITH_NO_--'] if 'tables-list' in x ]
+    isRegex = [ x for x in arguments['ARG_WITH_NO_--'] if 'regex' in x ]
     #备份的数据库 字符串
     start_time = datetime.datetime.now()
     logging.info('Begin Backup')
     print(str(start_time) + ' Begin Backup')
     # 指定了--database参数,则为备份单个数据库,即使配置文件中指定了也忽略
-    if isDatabase_arg:
+    if isTables_list:
+        print(mydumper_args)
+        cmd = getMdumperCmd(*mydumper_args)
+        cmd_list = cmd.split(' ')
+        passwd = [x.split('=')[1] for x in cmd_list if 'password' in x][0]
+        cmd = cmd.replace(passwd, '"'+passwd+'"')
+        child = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        while child.poll() == None:
+            stdout_line = child.stdout.readline().strip()
+            if stdout_line:
+                logging.info(stdout_line)
+        logging.info(child.stdout.read().strip())
+        state = child.returncode
+        logging.info('backup state:'+str(state))
+        # 检查备份是否成功
+        if state != 0:
+            logging.critical(' Backup Failed!')
+            is_complete = 'N'
+            end_time = datetime.datetime.now()
+            print(str(end_time) + ' Backup Faild')
+        elif state == 0:
+            end_time = datetime.datetime.now()
+            logging.info('End Backup')
+            is_complete = 'Y'
+            print(str(end_time) + ' Backup Complete')
+        elapsed_time = (end_time - start_time).total_seconds()
+        bdb = [ x.split('=')[1] for x in cmd_list if 'tables-list' in x ][0]
+        last_outputdir = [ x.split('=')[1] for x in cmd_list if 'outputdir' in x ][0]
+        return start_time, end_time, elapsed_time, is_complete, cmd, bdb, last_outputdir
+    elif isRegex:
+        print(mydumper_args)
+        cmd = getMdumperCmd(*mydumper_args)
+        cmd_list = cmd.split(' ')
+        passwd = [x.split('=')[1] for x in cmd_list if 'password' in x][0]
+        cmd = cmd.replace(passwd, '"'+passwd+'"')
+        child = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        while child.poll() == None:
+            stdout_line = child.stdout.readline().strip()
+            if stdout_line:
+                logging.info(stdout_line)
+        logging.info(child.stdout.read().strip())
+        state = child.returncode
+        logging.info('backup state:'+str(state))
+        # 检查备份是否成功
+        if state != 0:
+            logging.critical(' Backup Failed!')
+            is_complete = 'N'
+            end_time = datetime.datetime.now()
+            print(str(end_time) + ' Backup Faild')
+        elif state == 0:
+            end_time = datetime.datetime.now()
+            logging.info('End Backup')
+            is_complete = 'Y'
+            print(str(end_time) + ' Backup Complete')
+        elapsed_time = (end_time - start_time).total_seconds()
+        bdb = [ x.split('=')[1] for x in cmd_list if 'regex' in x ][0]
+        last_outputdir = [ x.split('=')[1] for x in cmd_list if 'outputdir' in x ][0]
+        return start_time, end_time, elapsed_time, is_complete, cmd, bdb, last_outputdir
+    elif isDatabase_arg:
         print(mydumper_args)
         bdb = isDatabase_arg[0].split('=')[1]
         # 生成备份命令
@@ -322,7 +381,6 @@ def runBackup(targetdb):
                     print(str(end_time) + ' ' + i + ' Backup Complete')
         end_time = datetime.datetime.now()
         elapsed_time = (end_time - start_time).total_seconds()
-        #
         full_comm = 'mydumper ' + \
             ' '.join(mydumper_args) + ' database=' + ','.join(bdb_list)
         return start_time, end_time, elapsed_time, is_complete, full_comm, bdb, last_outputdir
@@ -422,7 +480,7 @@ if __name__ == '__main__':
     '''
     参数解析
     '''
-    arguments = docopt(__doc__, version='pybackup 0.6.4')
+    arguments = docopt(__doc__, version='pybackup 0.6.5')
     print(arguments)
 
 
