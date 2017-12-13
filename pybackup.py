@@ -93,6 +93,12 @@ tdb_user = cf.get(section_name, "db_user")
 tdb_passwd = cf.get(section_name, "db_passwd")
 tdb_use = cf.get(section_name, "db_use")
 tdb_list = cf.get(section_name, "db_list")
+try:
+    db_consistency = cf.get(section_name, "db_consistency")
+except ConfigParser.NoOptionError,e:
+    db_consistency = False
+    print('没有指定db_consistency参数,默认采用--database循环备份db_list中指定的数据库,数据库之间不保证一致性')
+    logging.warning('没有指定db_consistency参数,默认采用--database循环备份db_list中指定的数据库,数据库之间不保证一致性', exc_info=True)
 
 # try:
 #     section_name = 'rsync'
@@ -324,12 +330,63 @@ def runBackup(targetdb):
         bdb_list = getDBS(targetdb)
         targetdb.close()
         print(bdb_list)
+        bdb = ','.join(bdb_list)
         # 如果列表为空,报错
         if not bdb_list:
             logging.critical('必须指定--database或在配置文件中指定需要备份的数据库')
             sys.exit(1)
+        
+        if db_consistency:
+            regex = ' --regex="^(' + '|'.join(bdb_list) + ')"'
+            print(mydumper_args)
+            cmd = getMdumperCmd(*mydumper_args)
+            cmd_list = cmd.split(' ')
+            passwd = [x.split('=')[1] for x in cmd_list if 'password' in x][0]
+            cmd = cmd.replace(passwd, '"'+passwd+'"')
+            cmd = cmd + regex
+            child = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            while child.poll() == None:
+                stdout_line = child.stdout.readline().strip()
+                if stdout_line:
+                    logging.info(stdout_line)
+            logging.info(child.stdout.read().strip())
+            state = child.returncode
+            logging.info('backup state:'+str(state))
+            # 检查备份是否成功
+            if state != 0:
+                logging.critical(' Backup Failed!')
+                is_complete = 'N'
+                end_time = datetime.datetime.now()
+                print(str(end_time) + ' Backup Faild')
+            elif state == 0:
+                end_time = datetime.datetime.now()
+                logging.info('End Backup')
+                is_complete = 'Y'
+                print(str(end_time) + ' Backup Complete')
+            elapsed_time = (end_time - start_time).total_seconds()
+            last_outputdir = [ x.split('=')[1] for x in cmd_list if 'outputdir' in x ][0]
+            if last_outputdir[-1] != '/':
+                last_outputdir += '/'
+            for db in bdb_list:
+                os.mkdir(last_outputdir + db )
+                mv_cmd = 'mv `ls ' + last_outputdir + '|grep -v "^' + db + '$"|grep ' + db + '` '  + last_outputdir + db + '/'
+                print(mv_cmd)
+                child = subprocess.Popen(mv_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                while child.poll() == None:
+                    stdout_line = child.stdout.readline().strip()
+                    if stdout_line:
+                        logging.info(stdout_line)
+                logging.info(child.stdout.read().strip())
+                state = child.returncode
+                logging.info('mv state:'+str(state))
+                if state != 0:
+                    logging.critical(' mv Failed!')
+                    print('mv Faild')
+                elif state == 0:
+                    logging.info('mv Complete')
+                    print('mv Complete')
+            return start_time, end_time, elapsed_time, is_complete, cmd, bdb, last_outputdir
         else:
-            bdb = ','.join(bdb_list)
             # 多个备份,每个备份都要有成功与否状态标记
             is_complete = ''
             # 在备份列表中循环
@@ -480,7 +537,7 @@ if __name__ == '__main__':
     '''
     参数解析
     '''
-    arguments = docopt(__doc__, version='pybackup 0.6.5')
+    arguments = docopt(__doc__, version='pybackup 0.7.0')
     print(arguments)
 
 
@@ -513,6 +570,7 @@ if __name__ == '__main__':
                 is_rsync = False
             print(is_rsync,is_history)
         bk_dir = [x for x in arguments['ARG_WITH_NO_--'] if 'outputdir' in x][0].split('=')[1]
+        os.chdir(bk_dir)
         targetdb = Fandb(tdb_host, tdb_port, tdb_user, tdb_passwd, tdb_use)
         mydumper_version, mysql_version = getVersion(targetdb)
         start_time, end_time, elapsed_time, is_complete, bk_command, backuped_db, last_outputdir = runBackup(
