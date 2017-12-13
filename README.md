@@ -90,6 +90,7 @@ db_port=3306
 db_user=root
 db_passwd=fanboshi
 db_use=information_schema
+db_consistency=True  --0.7.0新增option,可以不写,不写则为False,后面会对这个option进行说明
 db_list=test,fandb,union_log_ad_% --指定需要备份的数据库,可以使用mysql支持的通配符. 如果想要备份所有数据库则填写%
 
 [rsync]
@@ -162,6 +163,13 @@ CREATE TABLE user_backup (
     tag varchar(200) NOT NULL DEFAULT 'N/A' 
 )  ENGINE=INNODB CHARACTER SET UTF8 COLLATE UTF8_GENERAL_CI;
 ```
+
+关于db_consistency
+```
+./pybackup.py mydumper password=fanboshi database=fandb outputdir=/data4/recover/pybackup/2017-11-12 logfile=/data4/recover/pybackup/bak.log verbose=3
+```
+以上面命令为例,默认脚本逻辑对于db_list指定的库通过for循环逐一使用mydumper --database=xx 备份
+如果知道db_consistency=True则会替换为使用 --regex备份db_list中指定的所有数据库, 保证了数据库之间的一致性
 
 备份脚本示例
 ```
