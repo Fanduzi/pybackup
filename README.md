@@ -136,7 +136,7 @@ transfer_complete: Y
    server_version: 5.7.18-log
        bk_command: mydumper --password=supersecrect --outputdir=/data4/recover/pybackup/2017-11-15 --verbose=3 --compress --triggers --events --routines --use-savepoints database=fandb,test,union_log_ad_201710_db,union_log_ad_201711_db
 ```
-建库建表语句
+### 建库建表语句
 ```
 create database catalogdb;
 CREATE TABLE user_backup (
@@ -164,14 +164,14 @@ CREATE TABLE user_backup (
 )  ENGINE=INNODB CHARACTER SET UTF8 COLLATE UTF8_GENERAL_CI;
 ```
 
-关于db_consistency
+### 关于db_consistency
 ```
 ./pybackup.py mydumper password=fanboshi database=fandb outputdir=/data4/recover/pybackup/2017-11-12 logfile=/data4/recover/pybackup/bak.log verbose=3
 ```
 以上面命令为例,默认脚本逻辑对于db_list指定的库通过for循环逐一使用mydumper --database=xx 备份
 如果知道db_consistency=True则会替换为使用 --regex备份db_list中指定的所有数据库, 保证了数据库之间的一致性
 
-备份脚本示例
+### 备份脚本示例
 ```
 #!/bin/sh
 DSERVENDAY=`date +%Y-%m-%d --date='2 day ago'`
