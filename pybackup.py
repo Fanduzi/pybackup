@@ -62,7 +62,6 @@ def confLog():
                         filemode='a')
 
 
-
 def getMdumperCmd(*args):
     '''拼接mydumper命令'''
     cmd = 'mydumper '
@@ -72,60 +71,6 @@ def getMdumperCmd(*args):
         else:
             cmd += str(args[i]) + ' '
     return(cmd)
-
-
-'''
-解析配置文件获取参数
-'''
-cf = ConfigParser.ConfigParser()
-cf.read(os.getcwd() + '/pybackup.conf')
-section_name = 'CATALOG'
-cata_host = cf.get(section_name, "db_host")
-cata_port = cf.get(section_name, "db_port")
-cata_user = cf.get(section_name, "db_user")
-cata_passwd = cf.get(section_name, "db_passwd")
-cata_use = cf.get(section_name, "db_use")
-
-section_name = 'TDB'
-tdb_host = cf.get(section_name, "db_host")
-tdb_port = cf.get(section_name, "db_port")
-tdb_user = cf.get(section_name, "db_user")
-tdb_passwd = cf.get(section_name, "db_passwd")
-tdb_use = cf.get(section_name, "db_use")
-tdb_list = cf.get(section_name, "db_list")
-try:
-    db_consistency = cf.get(section_name, "db_consistency")
-except ConfigParser.NoOptionError,e:
-    db_consistency = False
-    print('没有指定db_consistency参数,默认采用--database循环备份db_list中指定的数据库,数据库之间不保证一致性')
-    logging.warning('没有指定db_consistency参数,默认采用--database循环备份db_list中指定的数据库,数据库之间不保证一致性', exc_info=True)
-
-# try:
-#     section_name = 'rsync'
-#     password_file = cf.get(section_name, "password_file")
-#     dest = cf.get(section_name, "dest")
-#     address = cf.get(section_name, "address")
-#     if dest[-1] != '/':
-#         dest += '/'
-#     rsync_enable = True
-# except NoSectionError, e:
-#     rsync_enable = False
-#     logging.warning('No rsync section, pass', exc_info=True)
-
-if cf.has_section('rsync'):
-    section_name = 'rsync'
-    password_file = cf.get(section_name, "password_file")
-    dest = cf.get(section_name, "dest")
-    address = cf.get(section_name, "address")
-    if dest[-1] != '/':
-        dest += '/'
-    rsync_enable = True
-else:
-    rsync_enable = False
-    logging.warning('No rsync section, pass', exc_info=True)
-
-section_name = 'pybackup'
-tag = cf.get(section_name, "tag")
 
 
 def getDBS(targetdb):
@@ -225,12 +170,22 @@ def runBackup(targetdb):
     logging.info('Begin Backup')
     print(str(start_time) + ' Begin Backup')
     # 指定了--database参数,则为备份单个数据库,即使配置文件中指定了也忽略
+
     if isTables_list:
         print(mydumper_args)
         cmd = getMdumperCmd(*mydumper_args)
         cmd_list = cmd.split(' ')
         passwd = [x.split('=')[1] for x in cmd_list if 'password' in x][0]
         cmd = cmd.replace(passwd, '"'+passwd+'"')
+        backup_dest = [x.split('=')[1] for x in cmd_list if 'outputdir' in x][0]
+        if backup_dest[-1] != '/':
+            uuid_dir = backup_dest + '/' + bk_id + '/'
+        else:
+            uuid_dir = backup_dest + bk_id + '/'
+
+        if not os.path.isdir(uuid_dir):
+            os.makedirs(uuid_dir)
+        cmd = cmd.replace(backup_dest, uuid_dir)
         child = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         while child.poll() == None:
             stdout_line = child.stdout.readline().strip()
@@ -252,14 +207,22 @@ def runBackup(targetdb):
             print(str(end_time) + ' Backup Complete')
         elapsed_time = (end_time - start_time).total_seconds()
         bdb = [ x.split('=')[1] for x in cmd_list if 'tables-list' in x ][0]
-        last_outputdir = [ x.split('=')[1] for x in cmd_list if 'outputdir' in x ][0]
-        return start_time, end_time, elapsed_time, is_complete, cmd, bdb, last_outputdir
+        return start_time, end_time, elapsed_time, is_complete, cmd, bdb, uuid_dir
     elif isRegex:
         print(mydumper_args)
         cmd = getMdumperCmd(*mydumper_args)
         cmd_list = cmd.split(' ')
         passwd = [x.split('=')[1] for x in cmd_list if 'password' in x][0]
         cmd = cmd.replace(passwd, '"'+passwd+'"')
+        backup_dest = [x.split('=')[1] for x in cmd_list if 'outputdir' in x][0]
+        if backup_dest[-1] != '/':
+            uuid_dir = backup_dest + '/' + bk_id + '/'
+        else:
+            uuid_dir = backup_dest + bk_id + '/'
+
+        if not os.path.isdir(uuid_dir):
+            os.makedirs(uuid_dir)
+        cmd = cmd.replace(backup_dest, uuid_dir)
         child = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         while child.poll() == None:
             stdout_line = child.stdout.readline().strip()
@@ -281,8 +244,7 @@ def runBackup(targetdb):
             print(str(end_time) + ' Backup Complete')
         elapsed_time = (end_time - start_time).total_seconds()
         bdb = [ x.split('=')[1] for x in cmd_list if 'regex' in x ][0]
-        last_outputdir = [ x.split('=')[1] for x in cmd_list if 'outputdir' in x ][0]
-        return start_time, end_time, elapsed_time, is_complete, cmd, bdb, last_outputdir
+        return start_time, end_time, elapsed_time, is_complete, cmd, bdb, uuid_dir
     elif isDatabase_arg:
         print(mydumper_args)
         bdb = isDatabase_arg[0].split('=')[1]
@@ -292,12 +254,14 @@ def runBackup(targetdb):
         temp_mydumper_args = copy.deepcopy(mydumper_args)
         if outputdir_arg[0][-1] != '/':
             temp_mydumper_args.remove(outputdir_arg[0])
-            temp_mydumper_args.append(outputdir_arg[0]+'/'+database)
-            last_outputdir = (outputdir_arg[0]+'/'+database).split('=')[1]
+            temp_mydumper_args.append(outputdir_arg[0]+'/' + bk_id + '/' + database)
+            last_outputdir = (outputdir_arg[0] + '/' + bk_id + '/' + database).split('=')[1]
         else:
             temp_mydumper_args.remove(outputdir_arg[0])
-            temp_mydumper_args.append(outputdir_arg[0]+database)
-            last_outputdir = (outputdir_arg[0]+database).split('=')[1]
+            temp_mydumper_args.append(outputdir_arg[0] + bk_id + '/' + database)
+            last_outputdir = (outputdir_arg[0] + bk_id + '/' + database).split('=')[1]
+        if not os.path.isdir(last_outputdir):
+            os.makedirs(last_outputdir)
         cmd = getMdumperCmd(*temp_mydumper_args)
         #密码中可能有带'#'或括号的,处理一下用引号包起来
         cmd_list = cmd.split(' ')
@@ -343,6 +307,14 @@ def runBackup(targetdb):
             cmd_list = cmd.split(' ')
             passwd = [x.split('=')[1] for x in cmd_list if 'password' in x][0]
             cmd = cmd.replace(passwd, '"'+passwd+'"')
+            backup_dest = [x.split('=')[1] for x in cmd_list if 'outputdir' in x][0]
+            if backup_dest[-1] != '/':
+                uuid_dir = backup_dest + '/' + bk_id + '/'
+            else:
+                uuid_dir = backup_dest + bk_id + '/'
+            if not os.path.isdir(uuid_dir):
+                os.makedirs(uuid_dir)
+            cmd = cmd.replace(backup_dest, uuid_dir)
             cmd = cmd + regex
             child = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             while child.poll() == None:
@@ -364,12 +336,11 @@ def runBackup(targetdb):
                 is_complete = 'Y'
                 print(str(end_time) + ' Backup Complete')
             elapsed_time = (end_time - start_time).total_seconds()
-            last_outputdir = [ x.split('=')[1] for x in cmd_list if 'outputdir' in x ][0]
-            if last_outputdir[-1] != '/':
-                last_outputdir += '/'
+
             for db in bdb_list:
-                os.mkdir(last_outputdir + db )
-                mv_cmd = 'mv `ls ' + last_outputdir + '|grep -v "^' + db + '$"|grep ' + db + '` '  + last_outputdir + db + '/'
+                os.makedirs(uuid_dir + db)
+                os.chdir(uuid_dir)
+                mv_cmd = 'mv `ls ' + uuid_dir + '|grep -v "^' + db + '$"|grep ' + db + '` '  + uuid_dir + db + '/'
                 print(mv_cmd)
                 child = subprocess.Popen(mv_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                 while child.poll() == None:
@@ -385,7 +356,7 @@ def runBackup(targetdb):
                 elif state == 0:
                     logging.info('mv Complete')
                     print('mv Complete')
-            return start_time, end_time, elapsed_time, is_complete, cmd, bdb, last_outputdir
+            return start_time, end_time, elapsed_time, is_complete, cmd, bdb, uuid_dir
         else:
             # 多个备份,每个备份都要有成功与否状态标记
             is_complete = ''
@@ -398,12 +369,14 @@ def runBackup(targetdb):
                 temp_mydumper_args = copy.deepcopy(mydumper_args)
                 if outputdir_arg[0][-1] != '/':
                     temp_mydumper_args.remove(outputdir_arg[0])
-                    temp_mydumper_args.append(outputdir_arg[0]+'/'+i)
-                    last_outputdir = (outputdir_arg[0]+'/'+i).split('=')[1]
+                    temp_mydumper_args.append(outputdir_arg[0] + '/' + bk_id + '/' + i)
+                    last_outputdir = (outputdir_arg[0] +'/' + bk_id + '/' + i).split('=')[1]
                 else:
                     temp_mydumper_args.remove(outputdir_arg[0])
-                    temp_mydumper_args.append(outputdir_arg[0]+i)
-                    last_outputdir = (outputdir_arg[0]+i).split('=')[1]
+                    temp_mydumper_args.append(outputdir_arg[0] + bk_id + '/' + i)
+                    last_outputdir = (outputdir_arg[0] + bk_id + '/' + i).split('=')[1]
+                if not os.path.isdir(last_outputdir):
+                    os.makedirs(last_outputdir)
                 comm = temp_mydumper_args + ['--database=' + i]
                 # 生成备份命令
                 cmd = getMdumperCmd(*comm)
@@ -537,9 +510,48 @@ if __name__ == '__main__':
     '''
     参数解析
     '''
-    arguments = docopt(__doc__, version='pybackup 0.7.0')
+    arguments = docopt(__doc__, version='pybackup 0.8.0')
     print(arguments)
 
+    '''
+    解析配置文件获取参数
+    '''
+    cf = ConfigParser.ConfigParser()
+    cf.read(os.getcwd() + '/pybackup.conf')
+    section_name = 'CATALOG'
+    cata_host = cf.get(section_name, "db_host")
+    cata_port = cf.get(section_name, "db_port")
+    cata_user = cf.get(section_name, "db_user")
+    cata_passwd = cf.get(section_name, "db_passwd")
+    cata_use = cf.get(section_name, "db_use")
+    
+    section_name = 'TDB'
+    tdb_host = cf.get(section_name, "db_host")
+    tdb_port = cf.get(section_name, "db_port")
+    tdb_user = cf.get(section_name, "db_user")
+    tdb_passwd = cf.get(section_name, "db_passwd")
+    tdb_use = cf.get(section_name, "db_use")
+    tdb_list = cf.get(section_name, "db_list")
+    try:
+        db_consistency = cf.get(section_name, "db_consistency")
+    except ConfigParser.NoOptionError,e:
+        db_consistency = False
+        print('没有指定db_consistency参数,默认采用--database循环备份db_list中指定的数据库,数据库之间不保证一致性')
+        
+    if cf.has_section('rsync'):
+        section_name = 'rsync'
+        password_file = cf.get(section_name, "password_file")
+        dest = cf.get(section_name, "dest")
+        address = cf.get(section_name, "address")
+        if dest[-1] != '/':
+            dest += '/'
+        rsync_enable = True
+    else:
+        rsync_enable = False
+        print("没有在配置文件中指定rsync区块,备份后不传输")
+    
+    section_name = 'pybackup'
+    tag = cf.get(section_name, "tag")
 
     if arguments['mydumper'] and ('help' in arguments['ARG_WITH_NO_--'][0]):
         subprocess.call('mydumper --help', shell=True)
@@ -557,6 +569,7 @@ if __name__ == '__main__':
             rsync(backup_dir,address)
     else:
         confLog()
+        bk_id = str(uuid.uuid1())
         if arguments['mydumper']:
             mydumper_args = ['--' + x for x in arguments['ARG_WITH_NO_--']]
             is_rsync = True
@@ -579,7 +592,7 @@ if __name__ == '__main__':
         safe_command = safeCommand(bk_command)
 
         if 'N' not in is_complete:
-            bk_size = getBackupSize(bk_dir)
+            bk_size = getBackupSize(last_outputdir)
             master_info, slave_info = getMetadata(last_outputdir)
             if rsync_enable:
                 if is_rsync:
@@ -595,11 +608,10 @@ if __name__ == '__main__':
 
 
         if is_history:
-            bk_id = str(uuid.uuid1())
             bk_server = getIP()
             CATALOG = Fandb(cata_host, cata_port, cata_user, cata_passwd, cata_use)
             sql = 'insert into user_backup(bk_id,bk_server,start_time,end_time,elapsed_time,backuped_db,is_complete,bk_size,bk_dir,transfer_start,transfer_end,transfer_elapsed,transfer_complete,remote_dest,master_status,slave_status,tool_version,server_version,bk_command,tag) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'
-            CATALOG.dml(sql, (bk_id, bk_server, start_time, end_time, elapsed_time, backuped_db, is_complete, bk_size, bk_dir, transfer_start, transfer_end,
+            CATALOG.dml(sql, (bk_id, bk_server, start_time, end_time, elapsed_time, backuped_db, is_complete, bk_size, last_outputdir, transfer_start, transfer_end,
                               transfer_elapsed, transfer_complete, dest, master_info, slave_info, mydumper_version, mysql_version, safe_command, tag))
             CATALOG.commit()
             CATALOG.close()
