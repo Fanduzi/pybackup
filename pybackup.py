@@ -4,6 +4,7 @@
 Usage:
         pybackup.py mydumper ARG_WITH_NO_--... (([--no-rsync] [--no-history]) | [--only-backup])
         pybackup.py only-rsync [--backup-dir=<DIR>] [--bk-id=<id>] [--log-file=<log>]
+        pybackup.py mark-del --backup-dir=<DIR>
         pybackup.py -h | --help
         pybackup.py --version
 
@@ -14,7 +15,7 @@ Options:
         --no-history                   Do not record backup history information.
         --only-backup                  Equal to use both --no-rsync and --no-history.
         --only-rsync                   When you backup complete, but rsync failed, use this option to rsync your backup.
-        --backup-dir=<DIR>             The directory where the backup files need to be rsync are located. [default: ./]
+        --backup-dir=<DIR>             The directory where the backuped files are located. [default: ./]
         --bk-id=<id>                   bk-id in table user_backup.
         --log-file=<log>               log file [default: ./rsync.log]
 
@@ -130,7 +131,7 @@ class Fandb:
         except Exception, e:
             logging.error('Failed to open file', exc_info=True)
 
-    def dml(self, sql, val=()):
+    def dml(self, sql, val=None):
         self.cursor.execute(sql, val)
 
     def version(self):
@@ -506,11 +507,20 @@ def rsync(bk_dir, address):
     return start_time, end_time, elapsed_time, is_complete
 
 
+def markDel(backup_dir,targetdb):
+    backup_list = os.listdir(backup_dir)
+    sql = "update user_backup set is_deleted='Y' where bk_id in (" + "'" + "','".join(backup_list) + "')"
+    print(sql)
+    targetdb.dml(sql)
+    targetdb.commit()
+    targetdb.close()
+    
+
 if __name__ == '__main__':
     '''
     参数解析
     '''
-    arguments = docopt(__doc__, version='pybackup 0.8.0')
+    arguments = docopt(__doc__, version='pybackup 0.9.0')
     print(arguments)
 
     '''
@@ -567,6 +577,9 @@ if __name__ == '__main__':
             CATALOG.close()
         else:
             rsync(backup_dir,address)
+    elif arguments['mark-del']:
+        CATALOG = Fandb(cata_host, cata_port, cata_user, cata_passwd, cata_use)
+        markDel(arguments['--backup-dir'],CATALOG)
     else:
         confLog()
         bk_id = str(uuid.uuid1())
