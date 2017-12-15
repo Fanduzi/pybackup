@@ -160,7 +160,8 @@ CREATE TABLE user_backup (
     tool_version VARCHAR(200) NOT NULL,
     server_version VARCHAR(200) NOT NULL,
     bk_command VARCHAR(400) NOT NULL,
-    tag varchar(200) NOT NULL DEFAULT 'N/A' 
+    tag varchar(200) NOT NULL DEFAULT 'N/A',
+    is_deleted char(1) NOT NULL DEFAULT 'N'
 )  ENGINE=INNODB CHARACTER SET UTF8 COLLATE UTF8_GENERAL_CI;
 ```
 
