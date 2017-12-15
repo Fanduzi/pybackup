@@ -180,7 +180,7 @@ DTODAY=`date +%Y-%m-%d`
 
 cd /data/backup_db/
 rm -rf $DTODAY
-rm -rf $DSERVENDAY
+rm -rf $DSERVENDAY  --不再建议这样删除备份了,建议使用 rm成功后使用 pybackup.py mark-del --bk-id将对应备份信息更新为已删除
 mkdir $DTODAY
 source ~/.bash_profile
 python /data/backup_db/pybackup.py mydumper password="papapa" user=root socket=/data/mysql/mysql.sock outputdir=/data/backup_db/$DTODAY verbose=3 compress threads=8 triggers events routines use-savepoints logfile=/data/backup_db/pybackup.log
