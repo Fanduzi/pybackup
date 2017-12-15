@@ -527,7 +527,9 @@ if __name__ == '__main__':
     解析配置文件获取参数
     '''
     cf = ConfigParser.ConfigParser()
-    cf.read(os.getcwd() + '/pybackup.conf')
+    cf.read(os.path.split(os.path.realpath(__file__))[0] + '/pybackup.conf')
+#    print(os.getcwd())
+#    print(os.path.split(os.path.realpath(__file__))[0])
     section_name = 'CATALOG'
     cata_host = cf.get(section_name, "db_host")
     cata_port = cf.get(section_name, "db_port")
