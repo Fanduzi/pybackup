@@ -153,7 +153,7 @@ class Fandb:
 
 def getBackupSize(outputdir):
     '''获取备份集大小'''
-    cmd = 'du -sh ' + outputdir
+    cmd = 'du -sh ' + os.path.abspath(os.path.join(outputdir,'..'))
     child = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
     child.wait()
     backup_size = child.communicate()[0].strip().split('\t')[0]
@@ -523,7 +523,7 @@ if __name__ == '__main__':
     '''
     参数解析
     '''
-    arguments = docopt(__doc__, version='pybackup 0.9.2')
+    arguments = docopt(__doc__, version='pybackup 0.9.3')
     print(arguments)
 
     '''
