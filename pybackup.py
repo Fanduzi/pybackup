@@ -173,6 +173,7 @@ def runBackup(targetdb):
     # 指定了--database参数,则为备份单个数据库,即使配置文件中指定了也忽略
 
     if isTables_list:
+        targetdb.close()
         print(mydumper_args)
         cmd = getMdumperCmd(*mydumper_args)
         cmd_list = cmd.split(' ')
@@ -210,6 +211,7 @@ def runBackup(targetdb):
         bdb = [ x.split('=')[1] for x in cmd_list if 'tables-list' in x ][0]
         return start_time, end_time, elapsed_time, is_complete, cmd, bdb, uuid_dir
     elif isRegex:
+        targetdb.close()
         print(mydumper_args)
         cmd = getMdumperCmd(*mydumper_args)
         cmd_list = cmd.split(' ')
@@ -247,6 +249,7 @@ def runBackup(targetdb):
         bdb = [ x.split('=')[1] for x in cmd_list if 'regex' in x ][0]
         return start_time, end_time, elapsed_time, is_complete, cmd, bdb, uuid_dir
     elif isDatabase_arg:
+        targetdb.close()
         print(mydumper_args)
         bdb = isDatabase_arg[0].split('=')[1]
         # 生成备份命令
@@ -520,7 +523,7 @@ if __name__ == '__main__':
     '''
     参数解析
     '''
-    arguments = docopt(__doc__, version='pybackup 0.9.0')
+    arguments = docopt(__doc__, version='pybackup 0.9.2')
     print(arguments)
 
     '''
