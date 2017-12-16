@@ -296,7 +296,7 @@ def runBackup(targetdb):
             logging.critical('必须指定--database或在配置文件中指定需要备份的数据库')
             sys.exit(1)
         
-        if db_consistency:
+        if db_consistency.upper() == 'TRUE':
             regex = ' --regex="^(' + '|'.join(bdb_list) + ')"'
             print(mydumper_args)
             cmd = getMdumperCmd(*mydumper_args)
@@ -550,9 +550,9 @@ if __name__ == '__main__':
     tdb_use = cf.get(section_name, "db_use")
     tdb_list = cf.get(section_name, "db_list")
     try:
-        db_consistency = True if cf.get(section_name, "db_consistency")
+        cf.get(section_name, "db_consistency")
     except ConfigParser.NoOptionError,e:
-        db_consistency = False
+        db_consistency = 'False'
         print('没有指定db_consistency参数,默认采用--database循环备份db_list中指定的数据库,数据库之间不保证一致性')
         
     if cf.has_section('rsync'):
