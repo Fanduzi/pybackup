@@ -146,7 +146,7 @@ CREATE TABLE user_backup (
     start_time DATETIME NOT NULL,
     end_time DATETIME NOT NULL,
     elapsed_time INT NOT NULL,
-    backuped_db VARCHAR(200) NOT NULL,
+    backuped_db VARCHAR(2048) NOT NULL,
     is_complete VARCHAR(30) NOT NULL,
     bk_size VARCHAR(10) NOT NULL,
     bk_dir VARCHAR(200) NOT NULL,
