@@ -51,7 +51,7 @@ def confLog():
     else:
         log_file = [x for x in arguments['ARG_WITH_NO_--'] if 'logfile' in x]
         if not log_file:
-            print('You must specify the --logfile option')
+            print('必须指定--logfile选项')
             sys.exit(1)
         else:
             log = log_file[0].split('=')[1]
@@ -104,6 +104,7 @@ def getDBS(targetdb):
         elif tdb_list == '%':
             dbs = ['%']
             sql = "select SCHEMA_NAME from schemata where SCHEMA_NAME like '%'"
+        print('getDBS: ' + sql)
         bdb = targetdb.dbs(sql)
         bdb_list = []
         for i in range(0, len(bdb)):
@@ -149,15 +150,6 @@ class Fandb:
         self.cursor.close()
         self.diccursor.close()
         self.conn.close()
-
-
-def getBackupSize(outputdir):
-    '''获取备份集大小'''
-    cmd = 'du -sh ' + os.path.abspath(os.path.join(outputdir,'..'))
-    child = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
-    child.wait()
-    backup_size = child.communicate()[0].strip().split('\t')[0]
-    return backup_size
 
 
 def runBackup(targetdb):
@@ -209,7 +201,7 @@ def runBackup(targetdb):
             print(str(end_time) + ' Backup Complete')
         elapsed_time = (end_time - start_time).total_seconds()
         bdb = [ x.split('=')[1] for x in cmd_list if 'tables-list' in x ][0]
-        return start_time, end_time, elapsed_time, is_complete, cmd, bdb, uuid_dir
+        return start_time, end_time, elapsed_time, is_complete, cmd, bdb, uuid_dir, 'tables-list'
     elif isRegex:
         targetdb.close()
         print(mydumper_args)
@@ -247,7 +239,7 @@ def runBackup(targetdb):
             print(str(end_time) + ' Backup Complete')
         elapsed_time = (end_time - start_time).total_seconds()
         bdb = [ x.split('=')[1] for x in cmd_list if 'regex' in x ][0]
-        return start_time, end_time, elapsed_time, is_complete, cmd, bdb, uuid_dir
+        return start_time, end_time, elapsed_time, is_complete, cmd, bdb, uuid_dir, 'regex'
     elif isDatabase_arg:
         targetdb.close()
         print(mydumper_args)
@@ -291,7 +283,7 @@ def runBackup(targetdb):
             is_complete = 'Y'
             print(str(end_time) + ' Backup Complete')
         elapsed_time = (end_time - start_time).total_seconds()
-        return start_time, end_time, elapsed_time, is_complete, cmd, bdb, last_outputdir
+        return start_time, end_time, elapsed_time, is_complete, cmd, bdb, last_outputdir, 'database'
     # 没有指定--database参数
     elif not isDatabase_arg:
         # 获取需要备份的数据库的列表
@@ -304,7 +296,7 @@ def runBackup(targetdb):
             logging.critical('必须指定--database或在配置文件中指定需要备份的数据库')
             sys.exit(1)
         
-        if db_consistency:
+        if db_consistency.upper() == 'TRUE':
             regex = ' --regex="^(' + '|'.join(bdb_list) + ')"'
             print(mydumper_args)
             cmd = getMdumperCmd(*mydumper_args)
@@ -360,7 +352,7 @@ def runBackup(targetdb):
                 elif state == 0:
                     logging.info('mv Complete')
                     print('mv Complete')
-            return start_time, end_time, elapsed_time, is_complete, cmd, bdb, uuid_dir
+            return start_time, end_time, elapsed_time, is_complete, cmd, bdb, uuid_dir, 'db_consistency'
         else:
             # 多个备份,每个备份都要有成功与否状态标记
             is_complete = ''
@@ -417,7 +409,7 @@ def runBackup(targetdb):
         elapsed_time = (end_time - start_time).total_seconds()
         full_comm = 'mydumper ' + \
             ' '.join(mydumper_args) + ' database=' + ','.join(bdb_list)
-        return start_time, end_time, elapsed_time, is_complete, full_comm, bdb, last_outputdir
+        return start_time, end_time, elapsed_time, is_complete, full_comm, bdb, last_outputdir, 'for database'
 
 
 def getIP():
@@ -428,6 +420,15 @@ def getIP():
     child.wait()
     ipaddress = child.communicate()[0].strip()
     return ipaddress
+
+
+def getBackupSize(outputdir):
+    '''获取备份集大小'''
+    cmd = 'du -sh ' + os.path.abspath(os.path.join(outputdir,'..'))
+    child = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+    child.wait()
+    backup_size = child.communicate()[0].strip().split('\t')[0]
+    return backup_size
 
 
 def getMetadata(outputdir):
@@ -513,7 +514,7 @@ def rsync(bk_dir, address):
 def markDel(backup_dir,targetdb):
     backup_list = os.listdir(backup_dir)
     sql = "update user_backup set is_deleted='Y' where bk_id in (" + "'" + "','".join(backup_list) + "')"
-    print(sql)
+    print('markDel:' + sql)
     targetdb.dml(sql)
     targetdb.commit()
     targetdb.close()
@@ -523,7 +524,8 @@ if __name__ == '__main__':
     '''
     参数解析
     '''
-    arguments = docopt(__doc__, version='pybackup 0.9.3')
+    pybackup_version = 'pybackup 0.9.3.2'
+    arguments = docopt(__doc__, version=pybackup_version)
     print(arguments)
 
     '''
@@ -599,12 +601,12 @@ if __name__ == '__main__':
             if arguments['--only-backup']:
                 is_history = False
                 is_rsync = False
-            print(is_rsync,is_history)
+            print('is_rsync,is_history: ',is_rsync,is_history)
         bk_dir = [x for x in arguments['ARG_WITH_NO_--'] if 'outputdir' in x][0].split('=')[1]
         os.chdir(bk_dir)
         targetdb = Fandb(tdb_host, tdb_port, tdb_user, tdb_passwd, tdb_use)
         mydumper_version, mysql_version = getVersion(targetdb)
-        start_time, end_time, elapsed_time, is_complete, bk_command, backuped_db, last_outputdir = runBackup(
+        start_time, end_time, elapsed_time, is_complete, bk_command, backuped_db, last_outputdir, backup_type = runBackup(
             targetdb)
 
         safe_command = safeCommand(bk_command)
@@ -628,8 +630,11 @@ if __name__ == '__main__':
         if is_history:
             bk_server = getIP()
             CATALOG = Fandb(cata_host, cata_port, cata_user, cata_passwd, cata_use)
-            sql = 'insert into user_backup(bk_id,bk_server,start_time,end_time,elapsed_time,backuped_db,is_complete,bk_size,bk_dir,transfer_start,transfer_end,transfer_elapsed,transfer_complete,remote_dest,master_status,slave_status,tool_version,server_version,bk_command,tag) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'
+            sql = 'insert into user_backup(bk_id,bk_server,start_time,end_time,elapsed_time,backuped_db,is_complete,bk_size,bk_dir,transfer_start,transfer_end,transfer_elapsed,transfer_complete,remote_dest,master_status,slave_status,tool_version,server_version,pybackup_version,bk_command,tag) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'
+            if backup_type == 'for database':
+                last_outputdir = os.path.abspath(os.path.join(last_outputdir,'..'))
+            print(bk_id, bk_server, start_time, end_time, elapsed_time, backuped_db, is_complete, bk_size, last_outputdir, transfer_start, transfer_end,transfer_elapsed, transfer_complete, dest, master_info, slave_info, mydumper_version, mysql_version, pybackup_version, safe_command)
             CATALOG.dml(sql, (bk_id, bk_server, start_time, end_time, elapsed_time, backuped_db, is_complete, bk_size, last_outputdir, transfer_start, transfer_end,
-                              transfer_elapsed, transfer_complete, dest, master_info, slave_info, mydumper_version, mysql_version, safe_command, tag))
+                              transfer_elapsed, transfer_complete, dest, master_info, slave_info, mydumper_version, mysql_version, pybackup_version, safe_command, tag))
             CATALOG.commit()
             CATALOG.close()
