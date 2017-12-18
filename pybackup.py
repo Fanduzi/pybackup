@@ -550,7 +550,8 @@ if __name__ == '__main__':
     tdb_use = cf.get(section_name, "db_use")
     tdb_list = cf.get(section_name, "db_list")
     try:
-        cf.get(section_name, "db_consistency")
+        global db_consistency
+        db_consistency = cf.get(section_name, "db_consistency")
     except ConfigParser.NoOptionError,e:
         db_consistency = 'False'
         print('没有指定db_consistency参数,默认采用--database循环备份db_list中指定的数据库,数据库之间不保证一致性')
