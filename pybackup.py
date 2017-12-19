@@ -524,7 +524,7 @@ if __name__ == '__main__':
     '''
     参数解析
     '''
-    pybackup_version = 'pybackup 0.9.4.2'
+    pybackup_version = 'pybackup 0.9.4.3'
     arguments = docopt(__doc__, version=pybackup_version)
     print(arguments)
 
@@ -624,7 +624,7 @@ if __name__ == '__main__':
                         transfer_start_temp, transfer_end, transfer_elapsed_temp, transfer_complete_temp = rsync(bk_dir, address)
                         transfer_complete = transfer_complete + ',' + transfer_complete_temp
                         transfer_count += 1
-                    transfer_elapsed = (transfer_start - transfer_end).total_seconds()
+                    transfer_elapsed = ( transfer_end - transfer_start ).total_seconds()
 
                 else:
                     transfer_start, transfer_end, transfer_elapsed, transfer_complete = None,None,None,'N/A (local backup)'
