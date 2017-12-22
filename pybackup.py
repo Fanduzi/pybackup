@@ -5,6 +5,7 @@ Usage:
         pybackup.py mydumper ARG_WITH_NO_--... (([--no-rsync] [--no-history]) | [--only-backup])
         pybackup.py only-rsync [--backup-dir=<DIR>] [--bk-id=<id>] [--log-file=<log>]
         pybackup.py mark-del --backup-dir=<DIR>
+        pybackup.py validate-backup --log-file=<log>
         pybackup.py -h | --help
         pybackup.py --version
 
@@ -17,7 +18,7 @@ Options:
         --only-rsync                   When you backup complete, but rsync failed, use this option to rsync your backup.
         --backup-dir=<DIR>             The directory where the backuped files are located. [default: ./]
         --bk-id=<id>                   bk-id in table user_backup.
-        --log-file=<log>               log file [default: ./rsync.log]
+        --log-file=<log>               log file [default: ./pybackup_default.log]
 
 more help information in:
 https://github.com/Fanduzi
@@ -46,7 +47,7 @@ from docopt import docopt
 
 def confLog():
     '''日志配置'''
-    if arguments['only-rsync']:
+    if arguments['only-rsync'] or arguments['validate-backup']:
         log = arguments['--log-file']
     else:
         log_file = [x for x in arguments['ARG_WITH_NO_--'] if 'logfile' in x]
@@ -105,7 +106,7 @@ def getDBS(targetdb):
             dbs = ['%']
             sql = "select SCHEMA_NAME from schemata where SCHEMA_NAME like '%'"
         print('getDBS: ' + sql)
-        bdb = targetdb.dbs(sql)
+        bdb = targetdb.dql(sql)
         bdb_list = []
         for i in range(0, len(bdb)):
             bdb_list += bdb[i]
@@ -139,7 +140,7 @@ class Fandb:
         self.cursor.execute('select version()')
         return self.cursor.fetchone()
 
-    def dbs(self, sql):
+    def dql(self, sql):
         self.cursor.execute(sql)
         return self.cursor.fetchall()
 
@@ -352,6 +353,8 @@ def runBackup(targetdb):
                 elif state == 0:
                     logging.info('mv Complete')
                     print('mv Complete')
+                cp_metadata = 'cp ' + uuid_dir + 'metadata ' + uuid_dir + db + '/'
+                subprocess.call(cp_metadata, shell=True)
             return start_time, end_time, elapsed_time, is_complete, cmd, bdb, uuid_dir, 'db_consistency'
         else:
             # 多个备份,每个备份都要有成功与否状态标记
@@ -518,13 +521,84 @@ def markDel(backup_dir,targetdb):
     targetdb.dml(sql)
     targetdb.commit()
     targetdb.close()
-    
+
+
+def validateBackup():
+    sql = (
+    "select a.id, a.bk_id, a.tag, date(start_time), real_path"
+    "  from user_backup a,user_backup_path b"
+    " where a.tag = b.tag"
+    "   and is_complete not like '%N%'"
+    "   and is_deleted != 'Y'"
+    "   and transfer_complete = 'Y'"
+    "   and a.tag = '{}'"
+    "   and validate_status != 'passed'"
+    "   and start_time >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH)"
+    " order by rand() limit 1"
+    )
+    start_time, end_time, recover_status, db_list, backup_paths, bk_ids, tags = [], [], [], [], [], [], []
+    for tag in bk_list:
+        catalogdb = Fandb(cata_host, cata_port, cata_user, cata_passwd, cata_use)
+        result = catalogdb.dql(sql.format(tag))[0]
+        res_bk_id, res_tag, res_start_time, real_path = result[1], result[2], result[3], result[4]
+        catalogdb.close()
+        backup_path = real_path + str(res_start_time) + '/' + res_bk_id + '/'
+        logging.info('Backup path: '+ backup_path )
+        backup_paths.append(backup_path)
+        bk_ids.append(res_bk_id)
+        tags.append(tag)
+        dbs = [ directory for directory in os.listdir(backup_path) if os.path.isdir(backup_path+directory) ]
+        if dbs:
+            for db in dbs:
+                db_list.append(db)
+                full_backup_path = backup_path + db + '/'
+                print(full_backup_path)
+                load_cmd = 'myloader -d {} --user=root --password=fanboshi --overwrite-tables'.format(full_backup_path)
+                print(load_cmd)
+                start_time.append(datetime.datetime.now())
+                logging.info('Start recover '+ db )
+                child = subprocess.Popen(load_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                while child.poll() == None:
+                    stdout_line = child.stdout.readline().strip()
+                    if stdout_line:
+                        logging.info(stdout_line)
+                logging.info(child.stdout.read().strip())
+                state = child.returncode
+                recover_status.append(state)
+                logging.info('Recover state:'+str(state))
+                end_time.append(datetime.datetime.now())
+                if state != 0:
+                    logging.info('Recover {} faild'.format(db))
+                elif state == 0:
+                    logging.info('Recover {} complete'.format(db))
+        else:
+            load_cmd = 'myloader -d {} --user=root --password=fanboshi --overwrite-tables'.format(backup_path)
+            print(load_cmd)
+            start_time.append(datetime.datetime.now())
+            logging.info('Start recover')
+            child = subprocess.Popen(load_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            while child.poll() == None:
+                stdout_line = child.stdout.readline().strip()
+                if stdout_line:
+                    logging.info(stdout_line)
+            logging.info(child.stdout.read().strip())
+            state = child.returncode
+            recover_status.append(state)
+            logging.info('Recover state:'+str(state))
+            end_time.append(datetime.datetime.now())
+            if state != 0:
+                logging.info('Recover faild')
+            elif state == 0:
+                logging.info('Recover complete')
+            db_list = db_list.append('N/A')
+    return start_time, end_time, recover_status, db_list, backup_paths, bk_ids, tags
+
 
 if __name__ == '__main__':
     '''
     参数解析
     '''
-    pybackup_version = 'pybackup 0.9.4.3'
+    pybackup_version = 'pybackup 0.10.2.0'
     arguments = docopt(__doc__, version=pybackup_version)
     print(arguments)
 
@@ -542,34 +616,38 @@ if __name__ == '__main__':
     cata_passwd = cf.get(section_name, "db_passwd")
     cata_use = cf.get(section_name, "db_use")
     
-    section_name = 'TDB'
-    tdb_host = cf.get(section_name, "db_host")
-    tdb_port = cf.get(section_name, "db_port")
-    tdb_user = cf.get(section_name, "db_user")
-    tdb_passwd = cf.get(section_name, "db_passwd")
-    tdb_use = cf.get(section_name, "db_use")
-    tdb_list = cf.get(section_name, "db_list")
-    try:
-        global db_consistency
-        db_consistency = cf.get(section_name, "db_consistency")
-    except ConfigParser.NoOptionError,e:
-        db_consistency = 'False'
-        print('没有指定db_consistency参数,默认采用--database循环备份db_list中指定的数据库,数据库之间不保证一致性')
+    if not arguments['validate-backup']:
+        section_name = 'TDB'
+        tdb_host = cf.get(section_name, "db_host")
+        tdb_port = cf.get(section_name, "db_port")
+        tdb_user = cf.get(section_name, "db_user")
+        tdb_passwd = cf.get(section_name, "db_passwd")
+        tdb_use = cf.get(section_name, "db_use")
+        tdb_list = cf.get(section_name, "db_list")
+        try:
+            global db_consistency
+            db_consistency = cf.get(section_name, "db_consistency")
+        except ConfigParser.NoOptionError,e:
+            db_consistency = 'False'
+            print('没有指定db_consistency参数,默认采用--database循环备份db_list中指定的数据库,数据库之间不保证一致性')
+            
+        if cf.has_section('rsync'):
+            section_name = 'rsync'
+            password_file = cf.get(section_name, "password_file")
+            dest = cf.get(section_name, "dest")
+            address = cf.get(section_name, "address")
+            if dest[-1] != '/':
+                dest += '/'
+            rsync_enable = True
+        else:
+            rsync_enable = False
+            print("没有在配置文件中指定rsync区块,备份后不传输")
         
-    if cf.has_section('rsync'):
-        section_name = 'rsync'
-        password_file = cf.get(section_name, "password_file")
-        dest = cf.get(section_name, "dest")
-        address = cf.get(section_name, "address")
-        if dest[-1] != '/':
-            dest += '/'
-        rsync_enable = True
-    else:
-        rsync_enable = False
-        print("没有在配置文件中指定rsync区块,备份后不传输")
-    
-    section_name = 'pybackup'
-    tag = cf.get(section_name, "tag")
+        section_name = 'pybackup'
+        tag = cf.get(section_name, "tag")
+    elif arguments['validate-backup']:
+        section_name = 'Validate'
+        bk_list = cf.get(section_name, "bk_list").split(',')
 
     if arguments['mydumper'] and ('help' in arguments['ARG_WITH_NO_--'][0]):
         subprocess.call('mydumper --help', shell=True)
@@ -578,16 +656,37 @@ if __name__ == '__main__':
         backup_dir = arguments['--backup-dir']
         if arguments['--bk-id']:
             transfer_start, transfer_end, transfer_elapsed, transfer_complete = rsync(backup_dir, address)
-            CATALOG = Fandb(cata_host, cata_port, cata_user, cata_passwd, cata_use)
+            catalogdb = Fandb(cata_host, cata_port, cata_user, cata_passwd, cata_use)
             sql = 'update user_backup set transfer_start=%s, transfer_end=%s, transfer_elapsed=%s, transfer_complete=%s where bk_id=%s'
-            CATALOG.dml(sql, (transfer_start, transfer_end, transfer_elapsed, transfer_complete, arguments['--bk-id']))
-            CATALOG.commit()
-            CATALOG.close()
+            catalogdb.dml(sql, (transfer_start, transfer_end, transfer_elapsed, transfer_complete, arguments['--bk-id']))
+            catalogdb.commit()
+            catalogdb.close()
         else:
             rsync(backup_dir,address)
     elif arguments['mark-del']:
-        CATALOG = Fandb(cata_host, cata_port, cata_user, cata_passwd, cata_use)
-        markDel(arguments['--backup-dir'],CATALOG)
+        catalogdb = Fandb(cata_host, cata_port, cata_user, cata_passwd, cata_use)
+        markDel(arguments['--backup-dir'],catalogdb)
+    elif arguments['validate-backup']:
+        confLog()
+        catalogdb = Fandb(cata_host, cata_port, cata_user, cata_passwd, cata_use)
+        start_time, end_time, recover_status, db_list, backup_paths, bk_ids, tags = validateBackup()
+        print(start_time, end_time, recover_status, db_list, backup_path, res_bk_id, tag)
+        catalogdb = Fandb(cata_host, cata_port, cata_user, cata_passwd, cata_use)
+        sql1 = "insert into user_recover_info(tag, bk_id, backup_path, db, start_time, end_time, elapsed_time, recover_status) values (%s,%s,%s,%s,%s,%s,%s,%s)"
+        sql2 = "update user_backup set validate_status=%s where bk_id=%s"
+        print(zip(start_time, end_time, recover_status, db_list))
+        for stime, etime, rstatus, db ,backup_path, bk_id, tag in zip(start_time, end_time, recover_status, db_list, backup_paths, bk_ids, tags):
+            if rstatus == 0:
+                status = 'sucess'
+                failed_flag = False
+            else:
+                status = 'failed'
+                failed_flag = True
+            catalogdb.dml(sql1,(tag, bk_id, backup_path, db, stime, etime, (etime - stime).total_seconds(), status))
+            if not failed_flag:
+                catalogdb.dml(sql2,('passed', bk_id))
+            catalogdb.commit()
+        catalogdb.close()
     else:
         confLog()
         bk_id = str(uuid.uuid1())
@@ -638,12 +737,12 @@ if __name__ == '__main__':
 
         if is_history:
             bk_server = getIP()
-            CATALOG = Fandb(cata_host, cata_port, cata_user, cata_passwd, cata_use)
+            catalogdb = Fandb(cata_host, cata_port, cata_user, cata_passwd, cata_use)
             sql = 'insert into user_backup(bk_id,bk_server,start_time,end_time,elapsed_time,backuped_db,is_complete,bk_size,bk_dir,transfer_start,transfer_end,transfer_elapsed,transfer_complete,remote_dest,master_status,slave_status,tool_version,server_version,pybackup_version,bk_command,tag) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'
             if backup_type == 'for database':
                 last_outputdir = os.path.abspath(os.path.join(last_outputdir,'..'))
             print(bk_id, bk_server, start_time, end_time, elapsed_time, backuped_db, is_complete, bk_size, last_outputdir, transfer_start, transfer_end,transfer_elapsed, transfer_complete, dest, master_info, slave_info, mydumper_version, mysql_version, pybackup_version, safe_command)
-            CATALOG.dml(sql, (bk_id, bk_server, start_time, end_time, elapsed_time, backuped_db, is_complete, bk_size, last_outputdir, transfer_start, transfer_end,
+            catalogdb.dml(sql, (bk_id, bk_server, start_time, end_time, elapsed_time, backuped_db, is_complete, bk_size, last_outputdir, transfer_start, transfer_end,
                               transfer_elapsed, transfer_complete, dest, master_info, slave_info, mydumper_version, mysql_version, pybackup_version, safe_command, tag))
-            CATALOG.commit()
-            CATALOG.close()
+            catalogdb.commit()
+            catalogdb.close()
