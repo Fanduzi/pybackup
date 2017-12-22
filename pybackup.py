@@ -539,24 +539,45 @@ def validateBackup():
     start_time, end_time, recover_status, db_list, backup_paths, bk_ids, tags = [], [], [], [], [], [], []
     for tag in bk_list:
         catalogdb = Fandb(cata_host, cata_port, cata_user, cata_passwd, cata_use)
-        result = catalogdb.dql(sql.format(tag))[0]
-        res_bk_id, res_tag, res_start_time, real_path = result[1], result[2], result[3], result[4]
-        catalogdb.close()
-        backup_path = real_path + str(res_start_time) + '/' + res_bk_id + '/'
-        logging.info('Backup path: '+ backup_path )
-        backup_paths.append(backup_path)
-        bk_ids.append(res_bk_id)
-        tags.append(tag)
-        dbs = [ directory for directory in os.listdir(backup_path) if os.path.isdir(backup_path+directory) ]
-        if dbs:
-            for db in dbs:
-                db_list.append(db)
-                full_backup_path = backup_path + db + '/'
-                print(full_backup_path)
-                load_cmd = 'myloader -d {} --user=root --password=fanboshi --overwrite-tables'.format(full_backup_path)
+        dql_res = catalogdb.dql(sql.format(tag))
+        result = dql_res[0] if dql_res else None 
+        if result:
+            res_bk_id, res_tag, res_start_time, real_path = result[1], result[2], result[3], result[4]
+            catalogdb.close()
+            backup_path = real_path + str(res_start_time) + '/' + res_bk_id + '/'
+            logging.info('Backup path: '+ backup_path )
+            backup_paths.append(backup_path)
+            bk_ids.append(res_bk_id)
+            tags.append(tag)
+            dbs = [ directory for directory in os.listdir(backup_path) if os.path.isdir(backup_path+directory) ]
+            if dbs:
+                for db in dbs:
+                    db_list.append(db)
+                    full_backup_path = backup_path + db + '/'
+                    #print(full_backup_path)
+                    load_cmd = 'myloader -d {} --user=root --password=fanboshi --overwrite-tables'.format(full_backup_path)
+                    print(load_cmd)
+                    start_time.append(datetime.datetime.now())
+                    logging.info('Start recover '+ db )
+                    child = subprocess.Popen(load_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                    while child.poll() == None:
+                        stdout_line = child.stdout.readline().strip()
+                        if stdout_line:
+                            logging.info(stdout_line)
+                    logging.info(child.stdout.read().strip())
+                    state = child.returncode
+                    recover_status.append(state)
+                    logging.info('Recover state:'+str(state))
+                    end_time.append(datetime.datetime.now())
+                    if state != 0:
+                        logging.info('Recover {} faild'.format(db))
+                    elif state == 0:
+                        logging.info('Recover {} complete'.format(db))
+            else:
+                load_cmd = 'myloader -d {} --user=root --password=fanboshi --overwrite-tables'.format(backup_path)
                 print(load_cmd)
                 start_time.append(datetime.datetime.now())
-                logging.info('Start recover '+ db )
+                logging.info('Start recover')
                 child = subprocess.Popen(load_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                 while child.poll() == None:
                     stdout_line = child.stdout.readline().strip()
@@ -568,29 +589,10 @@ def validateBackup():
                 logging.info('Recover state:'+str(state))
                 end_time.append(datetime.datetime.now())
                 if state != 0:
-                    logging.info('Recover {} faild'.format(db))
+                    logging.info('Recover faild')
                 elif state == 0:
-                    logging.info('Recover {} complete'.format(db))
-        else:
-            load_cmd = 'myloader -d {} --user=root --password=fanboshi --overwrite-tables'.format(backup_path)
-            print(load_cmd)
-            start_time.append(datetime.datetime.now())
-            logging.info('Start recover')
-            child = subprocess.Popen(load_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-            while child.poll() == None:
-                stdout_line = child.stdout.readline().strip()
-                if stdout_line:
-                    logging.info(stdout_line)
-            logging.info(child.stdout.read().strip())
-            state = child.returncode
-            recover_status.append(state)
-            logging.info('Recover state:'+str(state))
-            end_time.append(datetime.datetime.now())
-            if state != 0:
-                logging.info('Recover faild')
-            elif state == 0:
-                logging.info('Recover complete')
-            db_list = db_list.append('N/A')
+                    logging.info('Recover complete')
+                db_list = db_list.append('N/A')
     return start_time, end_time, recover_status, db_list, backup_paths, bk_ids, tags
 
 
@@ -598,7 +600,7 @@ if __name__ == '__main__':
     '''
     参数解析
     '''
-    pybackup_version = 'pybackup 0.10.2.0'
+    pybackup_version = 'pybackup 0.10.4.0'
     arguments = docopt(__doc__, version=pybackup_version)
     print(arguments)
 
@@ -668,25 +670,27 @@ if __name__ == '__main__':
         markDel(arguments['--backup-dir'],catalogdb)
     elif arguments['validate-backup']:
         confLog()
-        catalogdb = Fandb(cata_host, cata_port, cata_user, cata_passwd, cata_use)
         start_time, end_time, recover_status, db_list, backup_paths, bk_ids, tags = validateBackup()
-        print(start_time, end_time, recover_status, db_list, backup_path, res_bk_id, tag)
-        catalogdb = Fandb(cata_host, cata_port, cata_user, cata_passwd, cata_use)
-        sql1 = "insert into user_recover_info(tag, bk_id, backup_path, db, start_time, end_time, elapsed_time, recover_status) values (%s,%s,%s,%s,%s,%s,%s,%s)"
-        sql2 = "update user_backup set validate_status=%s where bk_id=%s"
-        print(zip(start_time, end_time, recover_status, db_list))
-        for stime, etime, rstatus, db ,backup_path, bk_id, tag in zip(start_time, end_time, recover_status, db_list, backup_paths, bk_ids, tags):
-            if rstatus == 0:
-                status = 'sucess'
-                failed_flag = False
-            else:
-                status = 'failed'
-                failed_flag = True
-            catalogdb.dml(sql1,(tag, bk_id, backup_path, db, stime, etime, (etime - stime).total_seconds(), status))
-            if not failed_flag:
-                catalogdb.dml(sql2,('passed', bk_id))
-            catalogdb.commit()
-        catalogdb.close()
+        print(start_time, end_time, recover_status, db_list, backup_paths, bk_ids, tags)
+        if bk_ids:
+            catalogdb = Fandb(cata_host, cata_port, cata_user, cata_passwd, cata_use)
+            sql1 = "insert into user_recover_info(tag, bk_id, backup_path, db, start_time, end_time, elapsed_time, recover_status) values (%s,%s,%s,%s,%s,%s,%s,%s)"
+            sql2 = "update user_backup set validate_status=%s where bk_id=%s"
+#            print(zip(start_time, end_time, recover_status, db_list))
+            for stime, etime, rstatus, db ,backup_path, bk_id, tag in zip(start_time, end_time, recover_status, db_list, backup_paths, bk_ids, tags):
+                if rstatus == 0:
+                    status = 'sucess'
+                    failed_flag = False
+                else:
+                    status = 'failed'
+                    failed_flag = True
+                catalogdb.dml(sql1,(tag, bk_id, backup_path, db, stime, etime, (etime - stime).total_seconds(), status))
+                if not failed_flag:
+                    catalogdb.dml(sql2,('passed', bk_id))
+                catalogdb.commit()
+            catalogdb.close()
+        else:
+            print('没有可用备份')
     else:
         confLog()
         bk_id = str(uuid.uuid1())
