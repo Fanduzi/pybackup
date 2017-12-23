@@ -549,7 +549,7 @@ def validateBackup():
             backup_paths.append(backup_path)
             bk_ids.append(res_bk_id)
             tags.append(tag)
-            dbs = [ directory for directory in os.listdir(backup_path) if os.path.isdir(backup_path+directory) ]
+            dbs = [ directory for directory in os.listdir(backup_path) if os.path.isdir(backup_path+directory) and directory != 'mysql' ]
             if dbs:
                 for db in dbs:
                     db_list.append(db)
@@ -600,7 +600,7 @@ if __name__ == '__main__':
     '''
     参数解析
     '''
-    pybackup_version = 'pybackup 0.10.4.0'
+    pybackup_version = 'pybackup 0.10.5.0'
     arguments = docopt(__doc__, version=pybackup_version)
     print(arguments)
 
