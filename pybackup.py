@@ -555,7 +555,7 @@ def validateBackup():
                     db_list.append(db)
                     full_backup_path = backup_path + db + '/'
                     #print(full_backup_path)
-                    load_cmd = 'myloader -d {} --user=root --password=fanboshi --overwrite-tables'.format(full_backup_path)
+                    load_cmd = 'myloader -d {} --user=root --password=fanboshi --overwrite-tables --verbose=3 --threads=3'.format(full_backup_path)
                     print(load_cmd)
                     start_time.append(datetime.datetime.now())
                     logging.info('Start recover '+ db )
@@ -574,7 +574,7 @@ def validateBackup():
                     elif state == 0:
                         logging.info('Recover {} complete'.format(db))
             else:
-                load_cmd = 'myloader -d {} --user=root --password=fanboshi --overwrite-tables'.format(backup_path)
+                load_cmd = 'myloader -d {} --user=root --password=fanboshi --overwrite-tables --verbose=3 --threads=3'.format(backup_path)
                 print(load_cmd)
                 start_time.append(datetime.datetime.now())
                 logging.info('Start recover')
