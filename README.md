@@ -11,10 +11,11 @@ pybackup由python编写,调用mydumper和rsync,将备份信息存入数据库中
 ## 参数说明
 帮助信息
 ```
-[root@iZ23t8cwo3iZ backup_db]# python pybackup.py -h
 Usage:
         pybackup.py mydumper ARG_WITH_NO_--... (([--no-rsync] [--no-history]) | [--only-backup])
         pybackup.py only-rsync [--backup-dir=<DIR>] [--bk-id=<id>] [--log-file=<log>]
+        pybackup.py mark-del --backup-dir=<DIR>
+        pybackup.py validate-backup --log-file=<log>
         pybackup.py -h | --help
         pybackup.py --version
 
@@ -25,14 +26,15 @@ Options:
         --no-history                   Do not record backup history information.
         --only-backup                  Equal to use both --no-rsync and --no-history.
         --only-rsync                   When you backup complete, but rsync failed, use this option to rsync your backup.
-        --backup-dir=<DIR>             The directory where the backup files need to be rsync are located. [default: ./]
+        --backup-dir=<DIR>             The directory where the backuped files are located. [default: ./]
         --bk-id=<id>                   bk-id in table user_backup.
-        --log-file=<log>               log file [default: ./rsync.log]
+        --log-file=<log>               log file [default: ./pybackup_default.log]
 
 more help information in:
 https://github.com/Fanduzi
 ```
 
+### pybackup.py mydumper
 ```
 pybackup.py mydumper ARG_WITH_NO_--... (([--no-rsync] [--no-history]) | [--only-backup])
 ```
@@ -73,7 +75,7 @@ user_backup表中记录的备份bk_id,如果指定,则会在rsync同步完成后
 
 本次rsync指定的日志,如果不指定,则默认为当前目录rsync.log文件
 
-## 配置文件说明
+#### 配置文件说明
 配置文件为pbackup.conf
 ```
 [root@localhost pybackup]# less pybackup.conf 
@@ -136,43 +138,51 @@ transfer_complete: Y
    server_version: 5.7.18-log
        bk_command: mydumper --password=supersecrect --outputdir=/data4/recover/pybackup/2017-11-15 --verbose=3 --compress --triggers --events --routines --use-savepoints database=fandb,test,union_log_ad_201710_db,union_log_ad_201711_db
 ```
-### 建库建表语句
+#### 建库建表语句
 ```
 create database catalogdb;
-CREATE TABLE user_backup (
-    id INT AUTO_INCREMENT NOT NULL PRIMARY KEY,
-    bk_id CHAR(36) NOT NULL UNIQUE KEY,
-    bk_server VARCHAR(15) NOT NULL,
-    start_time DATETIME NOT NULL,
-    end_time DATETIME NOT NULL,
-    elapsed_time INT NOT NULL,
-    backuped_db VARCHAR(2048) NOT NULL,
-    is_complete VARCHAR(200) NOT NULL,
-    bk_size VARCHAR(10) NOT NULL,
-    bk_dir VARCHAR(200) NOT NULL,
-    transfer_start DATETIME,
-    transfer_end DATETIME,
-    transfer_elapsed INT,
-    transfer_complete VARCHAR(20) NOT NULL,
-    remote_dest VARCHAR(200) NOT NULL,
-    master_status VARCHAR(200) NOT NULL,
-    slave_status VARCHAR(200) NOT NULL,
-    tool_version VARCHAR(200) NOT NULL,
-    server_version VARCHAR(200) NOT NULL,
-    bk_command VARCHAR(400) NOT NULL,
-    tag varchar(200) NOT NULL DEFAULT 'N/A',
-    is_deleted char(1) NOT NULL DEFAULT 'N'
-)  ENGINE=INNODB CHARACTER SET UTF8 COLLATE UTF8_GENERAL_CI;
+*************************** 1. row ***************************
+       Table: user_backup
+Create Table: CREATE TABLE `user_backup` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `bk_id` varchar(36) NOT NULL,
+  `bk_server` varchar(15) NOT NULL,
+  `start_time` datetime NOT NULL,
+  `end_time` datetime NOT NULL,
+  `elapsed_time` int(11) NOT NULL,
+  `backuped_db` varchar(2048) DEFAULT NULL,
+  `is_complete` varchar(200) DEFAULT NULL,
+  `bk_size` varchar(10) NOT NULL,
+  `bk_dir` varchar(200) NOT NULL,
+  `transfer_start` datetime DEFAULT NULL,
+  `transfer_end` datetime DEFAULT NULL,
+  `transfer_elapsed` int(11) DEFAULT NULL,
+  `transfer_complete` varchar(20) NOT NULL,
+  `remote_dest` varchar(200) NOT NULL,
+  `master_status` varchar(200) NOT NULL,
+  `slave_status` varchar(200) NOT NULL,
+  `tool_version` varchar(200) NOT NULL,
+  `server_version` varchar(200) NOT NULL,
+  `pybackup_version` varchar(200) DEFAULT NULL,
+  `bk_command` varchar(2048) DEFAULT NULL,
+  `tag` varchar(200) NOT NULL DEFAULT 'N/A',
+  `is_deleted` char(1) NOT NULL DEFAULT 'N',
+  `validate_status` varchar(20) NOT NULL DEFAULT 'N/A',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `bk_id` (`bk_id`),
+  KEY `idx_start_time` (`start_time`),
+  KEY `idx_transfer_start` (`transfer_start`)
+) ENGINE=InnoDB AUTO_INCREMENT=178 DEFAULT CHARSET=utf8
 ```
 
-### 关于db_consistency
+#### 关于db_consistency
 ```
 ./pybackup.py mydumper password=fanboshi database=fandb outputdir=/data4/recover/pybackup/2017-11-12 logfile=/data4/recover/pybackup/bak.log verbose=3
 ```
 以上面命令为例,默认脚本逻辑对于db_list指定的库通过for循环逐一使用mydumper --database=xx 备份
 如果知道db_consistency=True则会替换为使用 --regex备份db_list中指定的所有数据库, 保证了数据库之间的一致性
 
-### 备份脚本示例
+#### 备份脚本示例
 ```
 #!/bin/sh
 DSERVENDAY=`date +%Y-%m-%d --date='2 day ago'`
@@ -211,3 +221,91 @@ logroatate脚本
       copytruncate
 }
 ```
+
+### pybackup.py only-rsync
+当备份传输失败时,此命令用于手工传输备份,指定bk-id会更新user_backup表
+
+### pybackup.py mark-del
+建议使用pybackup备份的备份集先使用此命令更新user_backup.is_deleted列后在物理删除
+```
+python /data/scripts/bin/pybackup.py mark-del --backup-dir=$obsolete_dir2
+find /data2/backup/db_backup/101.37.164.13 -name "2017*"  ! -name  "*-01" -type d  -mtime  +31 -exec rm -r {} \;
+```
+
+逻辑是通过找到指定目录下的目录名(目录名就是bk_id),根据此目录名作为bk_id更新user_backup.is_deleted列
+```
+[root@localhost 2017-12-14]# tree
+.
+└── 0883fd06-e033-11e7-88ad-00163e0e2396
+    └── day_hour
+        ├── dbe8je6i4c3gjd50.day-schema.sql.gz
+        ├── dbe8je6i4c3gjd50.day.sql.gz
+        ├── dbe8je6i4c3gjd50.hour-schema.sql.gz
+        ├── dbe8je6i4c3gjd50.hour.sql.gz
+        └── metadata
+```
+
+### pybackup.py validate-backup
+用于测试备份的可恢复性, 通过查询catalogdb库获取未进行恢复测试且未删除的备份进行恢复
+需要手工填写user_backup_path表
+```
+root@localhost 23:12:  [catalogdb]> select * from user_backup_path;
++----+----------------+----------------+-----------------------------------------+--------------------------------+
+| id | bk_server      | remote_server  | real_path                               | tag                            |
++----+----------------+----------------+-----------------------------------------+--------------------------------+
+|  1 | 120.27.138.23  | 106.3.10.8     | /data1/backup/db_backup/120.27.138.23/  | 国内平台从1                    |
+|  2 | 101.37.174.13  | 106.3.10.9     | /data2/backup/db_backup/101.37.174.13/  | 国内平台主2                    |
++----+----------------+----------------+-----------------------------------------+--------------------------------+
+```
+上例中表示
+120.27.138.23(国内平台从1)的备份 存放在 106.3.10.8 的 `/data1/backup/db_backup/120.27.138.23/`中
+101.37.174.13(国内平台主2)的备份 存放在 106.3.10.9 的 `/data2/backup/db_backup/101.37.174.13/`中
+```
+
+建议在存放备份的机器安装好MySQL然后通过定时任务不停地查询catalogdb获取需要进行恢复测试的备份集进行恢复,恢复成功后会更新user_backup.validate_status列, 并会在user_recover_info插入记录
+```
+#备份可恢复性测试
+*/15 * * * * /data/scripts/bin/validate_backup.sh >> /data/scripts/log/validate_backup.log 2>&1
+[root@localhost 2017-12-14]# less /data/scripts/bin/validate_backup.sh
+#!/bin/bash
+source ~/.bash_profile
+num_validate=`ps -ef | grep pybackup | grep -v grep | grep validate|wc -l`
+if [ "$num_validate" == 0 ];then
+        python /data/scripts/bin/pybackup.py validate-backup --log-file=/data/scripts/log/validate.log
+fi
+```
+
+建标语句
+```
+root@localhost 23:12:  [catalogdb]> show create table user_backup_path\G
+*************************** 1. row ***************************
+       Table: user_backup_path
+Create Table: CREATE TABLE `user_backup_path` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `bk_server` varchar(15) NOT NULL,
+  `remote_server` varchar(15) NOT NULL,
+  `real_path` varchar(200) NOT NULL,
+  `tag` varchar(200) NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8
+1 row in set (0.00 sec)
+
+root@localhost 23:16:  [catalogdb]> show create table user_recover_info\G
+*************************** 1. row ***************************
+       Table: user_recover_info
+Create Table: CREATE TABLE `user_recover_info` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `bk_id` varchar(36) NOT NULL,
+  `tag` varchar(200) NOT NULL DEFAULT 'N/A',
+  `backup_path` varchar(2000) NOT NULL,
+  `db` varchar(200) NOT NULL,
+  `start_time` datetime NOT NULL,
+  `end_time` datetime NOT NULL,
+  `elapsed_time` int(11) NOT NULL,
+  `recover_status` varchar(20) DEFAULT NULL,
+  `validate_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=27 DEFAULT CHARSET=utf8
+1 row in set (0.00 sec)
+```
+
