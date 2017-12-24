@@ -260,7 +260,7 @@ root@localhost 23:12:  [catalogdb]> select * from user_backup_path;
 上例中表示
 120.27.138.23(国内平台从1)的备份 存放在 106.3.10.8 的 `/data1/backup/db_backup/120.27.138.23/`中
 101.37.174.13(国内平台主2)的备份 存放在 106.3.10.9 的 `/data2/backup/db_backup/101.37.174.13/`中
-```
+
 
 建议在存放备份的机器安装好MySQL然后通过定时任务不停地查询catalogdb获取需要进行恢复测试的备份集进行恢复,恢复成功后会更新user_backup.validate_status列, 并会在user_recover_info插入记录
 ```
