@@ -538,6 +538,8 @@ def validateBackup():
     )
     start_time, end_time, recover_status, db_list, backup_paths, bk_ids, tags = [], [], [], [], [], [], []
     for tag in bk_list:
+        print(tag)
+        logging.info('开始恢复: ' + tag)
         catalogdb = Fandb(cata_host, cata_port, cata_user, cata_passwd, cata_use)
         dql_res = catalogdb.dql(sql.format(tag))
         result = dql_res[0] if dql_res else None 
@@ -548,10 +550,17 @@ def validateBackup():
             logging.info('Backup path: '+ backup_path )
             backup_paths.append(backup_path)
             bk_ids.append(res_bk_id)
-            tags.append(tag)
             dbs = [ directory for directory in os.listdir(backup_path) if os.path.isdir(backup_path+directory) and directory != 'mysql' ]
             if dbs:
                 for db in dbs:
+                    '''
+                    ([datetime.datetime(2017, 12, 25, 15, 11, 36, 480263), datetime.datetime(2017, 12, 25, 15, 33, 17, 292924), datetime.datetime(2017, 12, 25, 17, 10, 38, 226598), datetime.datetime(2017, 12, 25, 17, 10, 39, 374409)], [datetime.datetime(2017, 12, 25, 15, 33, 17, 292734), datetime.datetime(2017, 12, 25, 17, 10, 38, 226447), datetime.datetime(2017, 12, 25, 17, 10, 38, 855657), datetime.datetime(2017, 12, 25, 17, 10, 39, 776067)], [0, 0, 0, 0], [u'dadian', u'sdkv2', u'dopack', u'catalogdb'], [u'/data2/backup/db_backup/120.55.74.93/2017-12-23/b22694c4-e752-11e7-9370-00163e0007f1/', u'/data2/backup/db_backup/106.3.130.84/2017-12-16/12cb7486-e229-11e7-b172-005056b15d9c/'], [u'b22694c4-e752-11e7-9370-00163e0007f1', u'12cb7486-e229-11e7-b172-005056b15d9c'], ['\xe5\x9b\xbd\xe5\x86\x85sdk\xe4\xbb\x8e1', '\xe6\x96\xb0\xe5\xa4\x87\xe4\xbb\xbd\xe6\x9c\xba']) 
+                    insert into user_recover_info(tag, bk_id, backup_path, db, start_time, end_time, elapsed_time, recover_status) values (国内sdk从1,b22694c4-e752-11e7-9370-00163e0007f1,/data2/backup/db_backup/120.55.74.93/2017-12-23/b22694c4-e752-11e7-9370-00163e0007f1/,dadian,2017-12-25 15:11:36.480263,2017-12-25 15:33:17.292734,1300.812471,sucess)
+                    insert into user_recover_info(tag, bk_id, backup_path, db, start_time, end_time, elapsed_time, recover_status) values (新备份机,12cb7486-e229-11e7-b172-005056b15d9c,/data2/backup/db_backup/106.3.130.84/2017-12-16/12cb7486-e229-11e7-b172-005056b15d9c/,sdkv2,2017-12-25 15:33:17.292924,2017-12-25 17:10:38.226447,5840.933523,sucess)
+
+                    1 个 bk_id 对应3个备份,1 个 bk_id 对应1个备份 ,但是tag只append 了俩, 应该内个库append一次,或者改成字典
+                    '''
+                    tags.append(tag)
                     db_list.append(db)
                     full_backup_path = backup_path + db + '/'
                     #print(full_backup_path)
@@ -600,7 +609,7 @@ if __name__ == '__main__':
     '''
     参数解析
     '''
-    pybackup_version = 'pybackup 0.10.5.0'
+    pybackup_version = 'pybackup 0.10.6.0'
     arguments = docopt(__doc__, version=pybackup_version)
     print(arguments)
 
@@ -676,7 +685,7 @@ if __name__ == '__main__':
             catalogdb = Fandb(cata_host, cata_port, cata_user, cata_passwd, cata_use)
             sql1 = "insert into user_recover_info(tag, bk_id, backup_path, db, start_time, end_time, elapsed_time, recover_status) values (%s,%s,%s,%s,%s,%s,%s,%s)"
             sql2 = "update user_backup set validate_status=%s where bk_id=%s"
-#            print(zip(start_time, end_time, recover_status, db_list))
+            logging.info(zip(start_time, end_time, recover_status, db_list))
             for stime, etime, rstatus, db ,backup_path, bk_id, tag in zip(start_time, end_time, recover_status, db_list, backup_paths, bk_ids, tags):
                 if rstatus == 0:
                     status = 'sucess'
@@ -684,12 +693,16 @@ if __name__ == '__main__':
                 else:
                     status = 'failed'
                     failed_flag = True
+                print(sql1 % (tag.decode('utf-8'), bk_id, backup_path, db, stime, etime, (etime - stime).total_seconds(), status))
+                logging.info(sql1 % (tag.decode('utf-8'), bk_id, backup_path, db, stime, etime, (etime - stime).total_seconds(), status))
                 catalogdb.dml(sql1,(tag, bk_id, backup_path, db, stime, etime, (etime - stime).total_seconds(), status))
                 if not failed_flag:
                     catalogdb.dml(sql2,('passed', bk_id))
                 catalogdb.commit()
             catalogdb.close()
+            logging.info('恢复完成')
         else:
+            logging.info('没有可用备份')
             print('没有可用备份')
     else:
         confLog()
