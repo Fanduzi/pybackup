@@ -538,6 +538,7 @@ def validateBackup():
     )
     start_time, end_time, recover_status, db_list, backup_paths, bk_ids, tags = [], [], [], [], [], [], []
     for tag in bk_list:
+        print(datetime.datetime.now())
         print(tag)
         logging.info('开始恢复: ' + tag)
         catalogdb = Fandb(cata_host, cata_port, cata_user, cata_passwd, cata_use)
@@ -548,8 +549,6 @@ def validateBackup():
             catalogdb.close()
             backup_path = real_path + str(res_start_time) + '/' + res_bk_id + '/'
             logging.info('Backup path: '+ backup_path )
-            backup_paths.append(backup_path)
-            bk_ids.append(res_bk_id)
             dbs = [ directory for directory in os.listdir(backup_path) if os.path.isdir(backup_path+directory) and directory != 'mysql' ]
             if dbs:
                 for db in dbs:
@@ -561,6 +560,8 @@ def validateBackup():
                     1 个 bk_id 对应3个备份,1 个 bk_id 对应1个备份 ,但是tag只append 了俩, 应该内个库append一次,或者改成字典
                     '''
                     tags.append(tag)
+                    backup_paths.append(backup_path)
+                    bk_ids.append(res_bk_id)
                     db_list.append(db)
                     full_backup_path = backup_path + db + '/'
                     #print(full_backup_path)
@@ -602,6 +603,8 @@ def validateBackup():
                 elif state == 0:
                     logging.info('Recover complete')
                 db_list = db_list.append('N/A')
+                backup_paths.append(backup_path)
+                bk_ids.append(res_bk_id)
     return start_time, end_time, recover_status, db_list, backup_paths, bk_ids, tags
 
 
@@ -609,7 +612,7 @@ if __name__ == '__main__':
     '''
     参数解析
     '''
-    pybackup_version = 'pybackup 0.10.6.0'
+    pybackup_version = 'pybackup 0.10.7.0'
     arguments = docopt(__doc__, version=pybackup_version)
     print(arguments)
 
@@ -693,7 +696,7 @@ if __name__ == '__main__':
                 else:
                     status = 'failed'
                     failed_flag = True
-                print(sql1 % (tag.decode('utf-8'), bk_id, backup_path, db, stime, etime, (etime - stime).total_seconds(), status))
+#                print(sql1 % (tag.decode('utf-8'), bk_id, backup_path, db, stime, etime, (etime - stime).total_seconds(), status))
                 logging.info(sql1 % (tag.decode('utf-8'), bk_id, backup_path, db, stime, etime, (etime - stime).total_seconds(), status))
                 catalogdb.dml(sql1,(tag, bk_id, backup_path, db, stime, etime, (etime - stime).total_seconds(), status))
                 if not failed_flag:
