@@ -614,7 +614,7 @@ if __name__ == '__main__':
     '''
     参数解析
     '''
-    pybackup_version = 'pybackup 0.10.7.0'
+    pybackup_version = 'pybackup 0.10.8.0'
     arguments = docopt(__doc__, version=pybackup_version)
     print(arguments)
 
