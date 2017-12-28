@@ -210,6 +210,8 @@ def runBackup(targetdb):
         cmd_list = cmd.split(' ')
         passwd = [x.split('=')[1] for x in cmd_list if 'password' in x][0]
         cmd = cmd.replace(passwd, '"'+passwd+'"')
+        regex_expression = [x.split('=')[1] for x in cmd_list if 'regex' in x][0]
+        cmd = cmd.replace(regex_expression, "'" + regex_expression + "'")
         backup_dest = [x.split('=')[1] for x in cmd_list if 'outputdir' in x][0]
         if backup_dest[-1] != '/':
             uuid_dir = backup_dest + '/' + bk_id + '/'
