@@ -604,7 +604,7 @@ def validateBackup():
                     logging.info('Recover faild')
                 elif state == 0:
                     logging.info('Recover complete')
-                db_list = db_list.append('N/A')
+                db_list.append('N/A')
                 backup_paths.append(backup_path)
                 bk_ids.append(res_bk_id)
     return start_time, end_time, recover_status, db_list, backup_paths, bk_ids, tags
@@ -614,7 +614,7 @@ if __name__ == '__main__':
     '''
     参数解析
     '''
-    pybackup_version = 'pybackup 0.10.8.1'
+    pybackup_version = 'pybackup 0.10.8.2'
     arguments = docopt(__doc__, version=pybackup_version)
     print(arguments)
 
