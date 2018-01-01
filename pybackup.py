@@ -614,7 +614,7 @@ if __name__ == '__main__':
     '''
     参数解析
     '''
-    pybackup_version = 'pybackup 0.10.8.0'
+    pybackup_version = 'pybackup 0.10.8.1'
     arguments = docopt(__doc__, version=pybackup_version)
     print(arguments)
 
@@ -632,7 +632,7 @@ if __name__ == '__main__':
     cata_passwd = cf.get(section_name, "db_passwd")
     cata_use = cf.get(section_name, "db_use")
     
-    if not arguments['validate-backup']:
+    if not arguments['validate-backup'] and not arguments['mark-del']:
         section_name = 'TDB'
         tdb_host = cf.get(section_name, "db_host")
         tdb_port = cf.get(section_name, "db_port")
