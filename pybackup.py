@@ -131,7 +131,7 @@ class Fandb:
             self.cursor = self.conn.cursor()
             self.diccursor = self.conn.cursor(pymysql.cursors.DictCursor)
         except Exception, e:
-            logging.error('Failed to open file', exc_info=True)
+            logging.error('connect error', exc_info=True)
 
     def dml(self, sql, val=None):
         self.cursor.execute(sql, val)
@@ -194,7 +194,7 @@ def runBackup(targetdb):
             logging.critical(' Backup Failed!')
             is_complete = 'N'
             end_time = datetime.datetime.now()
-            print(str(end_time) + ' Backup Faild')
+            print(str(end_time) + ' Backup Failed')
         elif state == 0:
             end_time = datetime.datetime.now()
             logging.info('End Backup')
@@ -234,7 +234,7 @@ def runBackup(targetdb):
             logging.critical(' Backup Failed!')
             is_complete = 'N'
             end_time = datetime.datetime.now()
-            print(str(end_time) + ' Backup Faild')
+            print(str(end_time) + ' Backup Failed')
         elif state == 0:
             end_time = datetime.datetime.now()
             logging.info('End Backup')
@@ -279,7 +279,7 @@ def runBackup(targetdb):
             logging.critical(' Backup Failed!')
             is_complete = 'N'
             end_time = datetime.datetime.now()
-            print(str(end_time) + ' Backup Faild')
+            print(str(end_time) + ' Backup Failed')
         elif state == 0:
             end_time = datetime.datetime.now()
             logging.info('End Backup')
@@ -328,7 +328,7 @@ def runBackup(targetdb):
                 logging.critical(' Backup Failed!')
                 is_complete = 'N'
                 end_time = datetime.datetime.now()
-                print(str(end_time) + ' Backup Faild')
+                print(str(end_time) + ' Backup Failed')
             elif state == 0:
                 end_time = datetime.datetime.now()
                 logging.info('End Backup')
@@ -351,7 +351,7 @@ def runBackup(targetdb):
                 logging.info('mv state:'+str(state))
                 if state != 0:
                     logging.critical(' mv Failed!')
-                    print('mv Faild')
+                    print('mv Failed')
                 elif state == 0:
                     logging.info('mv Complete')
                     print('mv Complete')
@@ -401,7 +401,7 @@ def runBackup(targetdb):
                     else:
                         is_complete += 'N'
                     end_time = datetime.datetime.now()
-                    print(str(end_time) + ' ' + i + ' Backup Faild')
+                    print(str(end_time) + ' ' + i + ' Backup Failed')
                 elif state == 0:
                     if is_complete:
                         is_complete += ',Y'
@@ -582,7 +582,7 @@ def validateBackup():
                     logging.info('Recover state:'+str(state))
                     end_time.append(datetime.datetime.now())
                     if state != 0:
-                        logging.info('Recover {} faild'.format(db))
+                        logging.info('Recover {} Failed'.format(db))
                     elif state == 0:
                         logging.info('Recover {} complete'.format(db))
             else:
@@ -601,7 +601,7 @@ def validateBackup():
                 logging.info('Recover state:'+str(state))
                 end_time.append(datetime.datetime.now())
                 if state != 0:
-                    logging.info('Recover faild')
+                    logging.info('Recover Failed')
                 elif state == 0:
                     logging.info('Recover complete')
                 db_list.append('N/A')
@@ -614,7 +614,7 @@ if __name__ == '__main__':
     '''
     参数解析
     '''
-    pybackup_version = 'pybackup 0.10.8.2'
+    pybackup_version = 'pybackup 0.10.8.3'
     arguments = docopt(__doc__, version=pybackup_version)
     print(arguments)
 
