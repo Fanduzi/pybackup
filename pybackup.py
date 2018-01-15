@@ -588,6 +588,7 @@ def validateBackup():
             else:
                 load_cmd = 'myloader -d {} --user=root --password=fanboshi --overwrite-tables --verbose=3 --threads=3'.format(backup_path)
                 print(load_cmd)
+                tags.append(tag)
                 start_time.append(datetime.datetime.now())
                 logging.info('Start recover')
                 child = subprocess.Popen(load_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -614,7 +615,7 @@ if __name__ == '__main__':
     '''
     参数解析
     '''
-    pybackup_version = 'pybackup 0.10.8.3'
+    pybackup_version = 'pybackup 0.10.8.4'
     arguments = docopt(__doc__, version=pybackup_version)
     print(arguments)
 
