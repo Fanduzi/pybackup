@@ -5,7 +5,7 @@ Usage:
         pybackup.py mydumper ARG_WITH_NO_--... (([--no-rsync] [--no-history]) | [--only-backup])
         pybackup.py only-rsync [--backup-dir=<DIR>] [--bk-id=<id>] [--log-file=<log>]
         pybackup.py mark-del --backup-dir=<DIR>
-        pybackup.py validate-backup --log-file=<log>
+        pybackup.py validate-backup --log-file=<log> [--bk_id]
         pybackup.py -h | --help
         pybackup.py --version
 
@@ -525,7 +525,7 @@ def markDel(backup_dir,targetdb):
     targetdb.close()
 
 
-def validateBackup():
+def validateBackup(bk_id=None):
     sql = (
     "select a.id, a.bk_id, a.tag, date(start_time), real_path"
     "  from user_backup a,user_backup_path b"
@@ -538,13 +538,25 @@ def validateBackup():
     "   and start_time >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH)"
     " order by rand() limit 1"
     )
+
+    sql2 = (
+    "select a.id, a.bk_id, a.tag, date(start_time), real_path"
+    "  from user_backup a,user_backup_path b"
+    " where a.tag = b.tag"
+    "   and a.bk_id = '{}'"
+    )
+
     start_time, end_time, recover_status, db_list, backup_paths, bk_ids, tags = [], [], [], [], [], [], []
     for tag in bk_list:
         print(datetime.datetime.now())
         print(tag)
+        logging.info('-='*20)
         logging.info('开始恢复: ' + tag)
         catalogdb = Fandb(cata_host, cata_port, cata_user, cata_passwd, cata_use)
-        dql_res = catalogdb.dql(sql.format(tag))
+        if bk_id:
+            dql_res = catalogdb.dql(sql2.format(bk_id))
+        else:
+            dql_res = catalogdb.dql(sql.format(tag))
         result = dql_res[0] if dql_res else None 
         if result:
             res_bk_id, res_tag, res_start_time, real_path = result[1], result[2], result[3], result[4]
@@ -615,7 +627,7 @@ if __name__ == '__main__':
     '''
     参数解析
     '''
-    pybackup_version = 'pybackup 0.10.8.4'
+    pybackup_version = 'pybackup 0.10.9.0'
     arguments = docopt(__doc__, version=pybackup_version)
     print(arguments)
 
@@ -664,7 +676,10 @@ if __name__ == '__main__':
         tag = cf.get(section_name, "tag")
     elif arguments['validate-backup']:
         section_name = 'Validate'
-        bk_list = cf.get(section_name, "bk_list").split(',')
+        if arguments['--bk_id']:
+            bk_list=list(arguments['--bk_id'])
+        else:
+            bk_list = cf.get(section_name, "bk_list").split(',')
 
     if arguments['mydumper'] and ('help' in arguments['ARG_WITH_NO_--'][0]):
         subprocess.call('mydumper --help', shell=True)
@@ -685,7 +700,7 @@ if __name__ == '__main__':
         markDel(arguments['--backup-dir'],catalogdb)
     elif arguments['validate-backup']:
         confLog()
-        start_time, end_time, recover_status, db_list, backup_paths, bk_ids, tags = validateBackup()
+        start_time, end_time, recover_status, db_list, backup_paths, bk_ids, tags = validateBackup(arguments['--bk_id'])
         print(start_time, end_time, recover_status, db_list, backup_paths, bk_ids, tags)
         if bk_ids:
             catalogdb = Fandb(cata_host, cata_port, cata_user, cata_passwd, cata_use)
