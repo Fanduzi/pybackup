@@ -5,7 +5,7 @@ Usage:
         pybackup.py mydumper ARG_WITH_NO_--... (([--no-rsync] [--no-history]) | [--only-backup])
         pybackup.py only-rsync [--backup-dir=<DIR>] [--bk-id=<id>] [--log-file=<log>]
         pybackup.py mark-del --backup-dir=<DIR>
-        pybackup.py validate-backup --log-file=<log> [--bk_id]
+        pybackup.py validate-backup --log-file=<log> [--bk_id=]
         pybackup.py -h | --help
         pybackup.py --version
 
