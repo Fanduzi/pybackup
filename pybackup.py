@@ -700,7 +700,10 @@ if __name__ == '__main__':
         markDel(arguments['--backup-dir'],catalogdb)
     elif arguments['validate-backup']:
         confLog()
-        start_time, end_time, recover_status, db_list, backup_paths, bk_ids, tags = validateBackup(arguments['--bk_id'])
+        if arguments['--bk_id']:
+            start_time, end_time, recover_status, db_list, backup_paths, bk_ids, tags = validateBackup(arguments['--bk_id'])
+        else:
+            start_time, end_time, recover_status, db_list, backup_paths, bk_ids, tags = validateBackup()
         print(start_time, end_time, recover_status, db_list, backup_paths, bk_ids, tags)
         if bk_ids:
             catalogdb = Fandb(cata_host, cata_port, cata_user, cata_passwd, cata_use)
