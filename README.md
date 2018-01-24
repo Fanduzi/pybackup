@@ -287,6 +287,7 @@ Create Table: CREATE TABLE `user_backup_path` (
   `remote_server` varchar(15) NOT NULL,
   `real_path` varchar(200) NOT NULL,
   `tag` varchar(200) NOT NULL,
+  `is_offline` char(1) NOT NULL DEFAULT 'N',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8
 1 row in set (0.00 sec)
