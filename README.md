@@ -311,3 +311,6 @@ Create Table: CREATE TABLE `user_recover_info` (
 1 row in set (0.00 sec)
 ```
 
+## 逻辑图(右键新标签中查看大图)
+![image](https://raw.githubusercontent.com/Fanduzi/pybackup/master/pybackup.png)
+
