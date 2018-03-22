@@ -141,6 +141,7 @@ transfer_complete: Y
 #### 建库建表语句
 ```
 create database catalogdb;
+root@localhost 11:09:  [catalogdb]> show create table user_backup\G
 *************************** 1. row ***************************
        Table: user_backup
 Create Table: CREATE TABLE `user_backup` (
@@ -172,7 +173,8 @@ Create Table: CREATE TABLE `user_backup` (
   UNIQUE KEY `bk_id` (`bk_id`),
   KEY `idx_start_time` (`start_time`),
   KEY `idx_transfer_start` (`transfer_start`)
-) ENGINE=InnoDB AUTO_INCREMENT=178 DEFAULT CHARSET=utf8
+) ENGINE=InnoDB AUTO_INCREMENT=1481 DEFAULT CHARSET=utf8
+1 row in set (0.00 sec)
 ```
 
 #### 关于db_consistency
@@ -180,7 +182,7 @@ Create Table: CREATE TABLE `user_backup` (
 ./pybackup.py mydumper password=fanboshi database=fandb outputdir=/data4/recover/pybackup/2017-11-12 logfile=/data4/recover/pybackup/bak.log verbose=3
 ```
 以上面命令为例,默认脚本逻辑对于db_list指定的库通过for循环逐一使用mydumper --database=xx 备份
-如果知道db_consistency=True则会替换为使用 --regex备份db_list中指定的所有数据库, 保证了数据库之间的一致性
+如果指定了db_consistency=True则会替换为使用 --regex备份db_list中指定的所有数据库, 保证了数据库之间的一致性
 
 #### 备份脚本示例
 ```
@@ -224,12 +226,20 @@ logroatate脚本
 
 ### pybackup.py only-rsync
 当备份传输失败时,此命令用于手工传输备份,指定bk-id会更新user_backup表
+```
+nohup python pybackup.py only-rsync --backup-dir=/data/backup_db/2017-12-15 --bk-id=94b64244-e13b-11e7-9eaa-00163f00254b --log-file=/data/scripts/log/rsync.log &
+```
 
 ### pybackup.py mark-del
-建议使用pybackup备份的备份集先使用此命令更新user_backup.is_deleted列后在物理删除
+建议使用pybackup备份的备份集先使用此命令更新user_backup.is_deleted列后再物理删除
 ```
-python /data/scripts/bin/pybackup.py mark-del --backup-dir=$obsolete_dir2
-find /data2/backup/db_backup/101.37.164.13 -name "2017*"  ! -name  "*-01" -type d  -mtime  +31 -exec rm -r {} \;
+obsolete_dir2=`find /data2/backup/db_backup/101.47.124.133 -name "201*"  ! -name  "*-01" -type d  -mtime  +31`
+if [ "x$obsolete_dir2" == 'x' ];then
+    echo "no obsolete in XXXDB"
+else
+    python /data/scripts/bin/pybackup.py mark-del --backup-dir=$obsolete_dir2
+    find /data2/backup/db_backup/101.47.124.133 -name "2017*"  ! -name  "*-01" -type d  -mtime  +31 -exec rm -r {} \;
+fi
 ```
 
 逻辑是通过找到指定目录下的目录名(目录名就是bk_id),根据此目录名作为bk_id更新user_backup.is_deleted列
@@ -246,7 +256,7 @@ find /data2/backup/db_backup/101.37.164.13 -name "2017*"  ! -name  "*-01" -type 
 ```
 
 ### pybackup.py validate-backup
-用于测试备份的可恢复性, 通过查询catalogdb库获取未进行恢复测试且未删除的备份进行恢复
+用于测试备份的可恢复性, 通过查询catalogdb库获取未进行恢复测试且未删除的备份进行恢复(可能是鸡肋的功能,有人说逻辑备份只要成功了不就都能恢复么,无言以对,貌似失败也就只有字符集不对的情况?)
 需要手工填写user_backup_path表
 ```
 root@localhost 23:12:  [catalogdb]> select * from user_backup_path;
@@ -276,9 +286,9 @@ if [ "$num_validate" == 0 ];then
 fi
 ```
 
-建标语句
+建表语句
 ```
-root@localhost 23:12:  [catalogdb]> show create table user_backup_path\G
+root@localhost 11:08:  [catalogdb]> show create table user_backup_path\G
 *************************** 1. row ***************************
        Table: user_backup_path
 Create Table: CREATE TABLE `user_backup_path` (
@@ -289,10 +299,10 @@ Create Table: CREATE TABLE `user_backup_path` (
   `tag` varchar(200) NOT NULL,
   `is_offline` char(1) NOT NULL DEFAULT 'N',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8
+) ENGINE=InnoDB AUTO_INCREMENT=21 DEFAULT CHARSET=utf8
 1 row in set (0.00 sec)
 
-root@localhost 23:16:  [catalogdb]> show create table user_recover_info\G
+root@localhost 11:09:  [catalogdb]> show create table user_recover_info\G
 *************************** 1. row ***************************
        Table: user_recover_info
 Create Table: CREATE TABLE `user_recover_info` (
@@ -307,7 +317,7 @@ Create Table: CREATE TABLE `user_recover_info` (
   `recover_status` varchar(20) DEFAULT NULL,
   `validate_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=27 DEFAULT CHARSET=utf8
+) ENGINE=InnoDB AUTO_INCREMENT=7347 DEFAULT CHARSET=utf8
 1 row in set (0.00 sec)
 ```
 
