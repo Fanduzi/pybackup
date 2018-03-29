@@ -183,7 +183,16 @@ Create Table: CREATE TABLE `user_backup` (
 ```
 以上面命令为例,默认脚本逻辑对于db_list指定的库通过for循环逐一使用mydumper --database=xx 备份
 如果指定了db_consistency=True则会替换为使用 --regex备份db_list中指定的所有数据库, 保证了数据库之间的一致性
-
+```
+备份完成后会将每个备份单独存放到对应的库名文件夹,并且每个文件夹都有一份相同的metedata
+# pwd
+/data/backup_db/2018-03-29/9a84bd44-32c2-11e8-a5ec-00163f00254b
+# ls
+dbe8je6i4c3gjd50  metadata  mysql  www_xz8_db
+# diff dbe8je6i4c3gjd50/metadata metadata 
+# diff mysql/metadata metadata 
+# diff www_xz8_db/metadata metadata 
+```
 #### 备份脚本示例
 ```
 #!/bin/sh
