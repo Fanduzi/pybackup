@@ -59,7 +59,8 @@ def confLog():
             arguments['ARG_WITH_NO_--'].remove(log_file[0])
     logging.basicConfig(level=logging.DEBUG,
                         format='%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s',
-                        datefmt='%a, %d %b %Y %H:%M:%S',
+                        #datefmt='%a, %d %b %Y %H:%M:%S',
+                        datefmt='%Y-%m-%d %H:%M:%S',
                         filename=log,
                         filemode='a')
 
@@ -298,7 +299,7 @@ def runBackup(targetdb):
         if not bdb_list:
             logging.critical('必须指定--database或在配置文件中指定需要备份的数据库')
             sys.exit(1)
-        
+
         if db_consistency.upper() == 'TRUE':
             regex = ' --regex="^(' + '|'.join(bdb_list) + ')"'
             print(mydumper_args)
@@ -557,7 +558,7 @@ def validateBackup(bk_id=None):
             dql_res = catalogdb.dql(sql2.format(bk_id))
         else:
             dql_res = catalogdb.dql(sql.format(tag))
-        result = dql_res[0] if dql_res else None 
+        result = dql_res[0] if dql_res else None
         if result:
             res_bk_id, res_tag, res_start_time, real_path = result[1], result[2], result[3], result[4]
             catalogdb.close()
@@ -567,7 +568,7 @@ def validateBackup(bk_id=None):
             if dbs:
                 for db in dbs:
                     '''
-                    ([datetime.datetime(2017, 12, 25, 15, 11, 36, 480263), datetime.datetime(2017, 12, 25, 15, 33, 17, 292924), datetime.datetime(2017, 12, 25, 17, 10, 38, 226598), datetime.datetime(2017, 12, 25, 17, 10, 39, 374409)], [datetime.datetime(2017, 12, 25, 15, 33, 17, 292734), datetime.datetime(2017, 12, 25, 17, 10, 38, 226447), datetime.datetime(2017, 12, 25, 17, 10, 38, 855657), datetime.datetime(2017, 12, 25, 17, 10, 39, 776067)], [0, 0, 0, 0], [u'dadian', u'sdkv2', u'dopack', u'catalogdb'], [u'/data2/backup/db_backup/120.55.74.93/2017-12-23/b22694c4-e752-11e7-9370-00163e0007f1/', u'/data2/backup/db_backup/106.3.130.84/2017-12-16/12cb7486-e229-11e7-b172-005056b15d9c/'], [u'b22694c4-e752-11e7-9370-00163e0007f1', u'12cb7486-e229-11e7-b172-005056b15d9c'], ['\xe5\x9b\xbd\xe5\x86\x85sdk\xe4\xbb\x8e1', '\xe6\x96\xb0\xe5\xa4\x87\xe4\xbb\xbd\xe6\x9c\xba']) 
+                    ([datetime.datetime(2017, 12, 25, 15, 11, 36, 480263), datetime.datetime(2017, 12, 25, 15, 33, 17, 292924), datetime.datetime(2017, 12, 25, 17, 10, 38, 226598), datetime.datetime(2017, 12, 25, 17, 10, 39, 374409)], [datetime.datetime(2017, 12, 25, 15, 33, 17, 292734), datetime.datetime(2017, 12, 25, 17, 10, 38, 226447), datetime.datetime(2017, 12, 25, 17, 10, 38, 855657), datetime.datetime(2017, 12, 25, 17, 10, 39, 776067)], [0, 0, 0, 0], [u'dadian', u'sdkv2', u'dopack', u'catalogdb'], [u'/data2/backup/db_backup/120.55.74.93/2017-12-23/b22694c4-e752-11e7-9370-00163e0007f1/', u'/data2/backup/db_backup/106.3.130.84/2017-12-16/12cb7486-e229-11e7-b172-005056b15d9c/'], [u'b22694c4-e752-11e7-9370-00163e0007f1', u'12cb7486-e229-11e7-b172-005056b15d9c'], ['\xe5\x9b\xbd\xe5\x86\x85sdk\xe4\xbb\x8e1', '\xe6\x96\xb0\xe5\xa4\x87\xe4\xbb\xbd\xe6\x9c\xba'])
                     insert into user_recover_info(tag, bk_id, backup_path, db, start_time, end_time, elapsed_time, recover_status) values (国内sdk从1,b22694c4-e752-11e7-9370-00163e0007f1,/data2/backup/db_backup/120.55.74.93/2017-12-23/b22694c4-e752-11e7-9370-00163e0007f1/,dadian,2017-12-25 15:11:36.480263,2017-12-25 15:33:17.292734,1300.812471,sucess)
                     insert into user_recover_info(tag, bk_id, backup_path, db, start_time, end_time, elapsed_time, recover_status) values (新备份机,12cb7486-e229-11e7-b172-005056b15d9c,/data2/backup/db_backup/106.3.130.84/2017-12-16/12cb7486-e229-11e7-b172-005056b15d9c/,sdkv2,2017-12-25 15:33:17.292924,2017-12-25 17:10:38.226447,5840.933523,sucess)
 
@@ -644,7 +645,7 @@ if __name__ == '__main__':
     cata_user = cf.get(section_name, "db_user")
     cata_passwd = cf.get(section_name, "db_passwd")
     cata_use = cf.get(section_name, "db_use")
-    
+
     if not arguments['validate-backup'] and not arguments['mark-del']:
         section_name = 'TDB'
         tdb_host = cf.get(section_name, "db_host")
@@ -659,7 +660,7 @@ if __name__ == '__main__':
         except ConfigParser.NoOptionError,e:
             db_consistency = 'False'
             print('没有指定db_consistency参数,默认采用--database循环备份db_list中指定的数据库,数据库之间不保证一致性')
-            
+
         if cf.has_section('rsync'):
             section_name = 'rsync'
             password_file = cf.get(section_name, "password_file")
@@ -671,7 +672,7 @@ if __name__ == '__main__':
         else:
             rsync_enable = False
             print("没有在配置文件中指定rsync区块,备份后不传输")
-        
+
         section_name = 'pybackup'
         tag = cf.get(section_name, "tag")
     elif arguments['validate-backup']:
