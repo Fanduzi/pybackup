@@ -301,7 +301,7 @@ def runBackup(targetdb):
             sys.exit(1)
 
         if db_consistency.upper() == 'TRUE':
-            regex = ' --regex="^(' + '|'.join(bdb_list) + ')"'
+            regex = ' --regex="^(' + '\.|'.join(bdb_list) + '\.' + ')"'
             print(mydumper_args)
             cmd = getMdumperCmd(*mydumper_args)
             cmd_list = cmd.split(' ')
