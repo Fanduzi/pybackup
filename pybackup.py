@@ -335,29 +335,28 @@ def runBackup(targetdb):
                 logging.info('End Backup')
                 is_complete = 'Y'
                 print(str(end_time) + ' Backup Complete')
+                for db in bdb_list:
+                    os.makedirs(uuid_dir + db)
+                    os.chdir(uuid_dir)
+                    mv_cmd = 'mv `ls ' + uuid_dir + '|grep -v "^' + db + '$"|grep ' + db + '` '  + uuid_dir + db + '/'
+                    print(mv_cmd)
+                    child = subprocess.Popen(mv_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                    while child.poll() == None:
+                        stdout_line = child.stdout.readline().strip()
+                        if stdout_line:
+                            logging.info(stdout_line)
+                    logging.info(child.stdout.read().strip())
+                    state = child.returncode
+                    logging.info('mv state:'+str(state))
+                    if state != 0:
+                        logging.critical(' mv Failed!')
+                        print('mv Failed')
+                    elif state == 0:
+                        logging.info('mv Complete')
+                        print('mv Complete')
+                    cp_metadata = 'cp ' + uuid_dir + 'metadata ' + uuid_dir + db + '/'
+                    subprocess.call(cp_metadata, shell=True)
             elapsed_time = (end_time - start_time).total_seconds()
-
-            for db in bdb_list:
-                os.makedirs(uuid_dir + db)
-                os.chdir(uuid_dir)
-                mv_cmd = 'mv `ls ' + uuid_dir + '|grep -v "^' + db + '$"|grep ' + db + '` '  + uuid_dir + db + '/'
-                print(mv_cmd)
-                child = subprocess.Popen(mv_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-                while child.poll() == None:
-                    stdout_line = child.stdout.readline().strip()
-                    if stdout_line:
-                        logging.info(stdout_line)
-                logging.info(child.stdout.read().strip())
-                state = child.returncode
-                logging.info('mv state:'+str(state))
-                if state != 0:
-                    logging.critical(' mv Failed!')
-                    print('mv Failed')
-                elif state == 0:
-                    logging.info('mv Complete')
-                    print('mv Complete')
-                cp_metadata = 'cp ' + uuid_dir + 'metadata ' + uuid_dir + db + '/'
-                subprocess.call(cp_metadata, shell=True)
             return start_time, end_time, elapsed_time, is_complete, cmd, bdb, uuid_dir, 'db_consistency'
         else:
             # 多个备份,每个备份都要有成功与否状态标记
@@ -788,3 +787,4 @@ if __name__ == '__main__':
                               transfer_elapsed, transfer_complete, dest, master_info, slave_info, mydumper_version, mysql_version, pybackup_version, safe_command, tag))
             catalogdb.commit()
             catalogdb.close()
+
