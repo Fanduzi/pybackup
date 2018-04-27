@@ -338,7 +338,7 @@ def runBackup(targetdb):
                 for db in bdb_list:
                     os.makedirs(uuid_dir + db)
                     os.chdir(uuid_dir)
-                    mv_cmd = 'mv `ls ' + uuid_dir + '|grep -v "^' + db + '$"|grep ' + db + '` '  + uuid_dir + db + '/'
+                    mv_cmd = 'mv `ls ' + uuid_dir + '|grep -v "^' + db + '$"|grep "' + db + '\."` '  + uuid_dir + db + '/'
                     print(mv_cmd)
                     child = subprocess.Popen(mv_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                     while child.poll() == None:
