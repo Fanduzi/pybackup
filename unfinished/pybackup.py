@@ -313,7 +313,7 @@ def runBackup(targetdb):
                 for db in bdb_list:
                     os.makedirs(uuid_dir + db)
                     os.chdir(uuid_dir)
-                    mv_cmd = 'mv `ls ' + uuid_dir + '|grep -v "^' + db + '$"|grep "' + db + '\."` '  + uuid_dir + db + '/'
+                    mv_cmd = 'mv `ls ' + uuid_dir + '|grep -v "^' + db + '$"|grep "' + db + '\.|' + db + '-"` '  + uuid_dir + db + '/'
                     print(mv_cmd)
                     state = runProcess(mv_cmd)
                     logging.info('mv state:'+str(state))
@@ -570,7 +570,7 @@ if __name__ == '__main__':
     '''
     参数解析
     '''
-    pybackup_version = 'pybackup 0.10.12.0'
+    pybackup_version = 'pybackup 0.10.13.0'
     arguments = docopt(__doc__, version=pybackup_version)
     print(arguments)
 
