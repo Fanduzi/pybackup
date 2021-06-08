@@ -1,3 +1,5 @@
+[![Author](https://img.shields.io/badge/author-Fan()-blue.svg?style=flat)](http://fuxkdb.com/)
+
 # pybackup使用文档
 pybackup源自于对线上备份脚本的改进和对备份情况的监控需求.
 
