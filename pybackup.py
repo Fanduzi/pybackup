@@ -450,14 +450,14 @@ def getMetadata(outputdir):
     master_status = content[:separate_pos]
     master_log = [x.split(':')[1].strip() for x in master_status if 'Log' in x]
     master_pos = [x.split(':')[1].strip() for x in master_status if 'Pos' in x]
-    master_GTID = ''.join([x.strip() for x in master_status[4::]]).replace('GTID:','')
+    master_GTID = [''.join([x.strip() for x in master_status[4::]]).replace('GTID:','')]
     master_info = ','.join(master_log + master_pos + master_GTID)
 
     slave_status = content[separate_pos + 1:]
     if not 'Finished' in slave_status[0]:
         slave_log = [x.split(':')[1].strip() for x in slave_status if 'Log' in x]
         slave_pos = [x.split(':')[1].strip() for x in slave_status if 'Pos' in x]
-        slave_GTID = ''.join([x.strip() for x in slave_status[4:-1]]).replace('GTID:','')
+        slave_GTID = [''.join([x.strip() for x in slave_status[4:-1]]).replace('GTID:','')]
         slave_info = ','.join(slave_log + slave_pos + slave_GTID)
         return master_info, slave_info
     else:
